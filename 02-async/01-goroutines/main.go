@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"time"
 )
 
-const defaultRetriesCount = 10
+const (
+	defaultTimeout = 30 * time.Second
+)
 
 type User struct {
 	Email string
@@ -45,38 +48,32 @@ func (h Handler) SignUp(u User) error {
 		return err
 	}
 
-	newsletterErr := make(chan error)
-	go exponentialBackoffAsync(h.newsletterClient.AddToNewsletter, u, newsletterErr)
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
 
-	notificationsErr := make(chan error)
-	go exponentialBackoffAsync(h.notificationsClient.SendNotification, u, notificationsErr)
+	go exponentialBackoff(ctx, func() error {
+		return h.newsletterClient.AddToNewsletter(u)
+	})
 
-	if err := <-newsletterErr; err != nil {
-		return err
-	}
+	go exponentialBackoff(ctx, func() error {
+		return h.notificationsClient.SendNotification(u)
+	})
 
-	if err := <-notificationsErr; err != nil {
-		return err
-	}
 	return nil
 }
 
-func exponentialBackoffAsync(f func(u User) error, u User, errChan chan<- error) {
-	errChan <- exponentialBackoff(f, u)
-}
-
-func exponentialBackoff(f func(u User) error, u User) error {
-	var err error
-	delay := 1
-	term := 1
-	for i := 1; i <= defaultRetriesCount; i++ {
-		err = f(u)
-		if err == nil {
-			return nil
+func exponentialBackoff(ctx context.Context, f func() error) {
+	delay := 10 * time.Millisecond
+	select {
+	case <-ctx.Done():
+		return
+	default:
+		for {
+			if err := f(); err == nil {
+				return
+			}
+			time.Sleep(delay)
+			delay *= 2
 		}
-		time.Sleep(time.Duration(delay) * time.Second)
-		term *= defaultRetriesCount / i
-		delay += term
 	}
-	return err
 }

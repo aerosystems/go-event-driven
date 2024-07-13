@@ -2,10 +2,8 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"net/http"
-	"os"
-
 	"github.com/ThreeDotsLabs/go-event-driven/common/clients"
 	"github.com/ThreeDotsLabs/go-event-driven/common/clients/receipts"
 	"github.com/ThreeDotsLabs/go-event-driven/common/clients/spreadsheets"
@@ -13,6 +11,7 @@ import (
 	"github.com/ThreeDotsLabs/go-event-driven/common/log"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
+	"net/http"
 )
 
 type TicketsConfirmationRequest struct {
@@ -21,14 +20,8 @@ type TicketsConfirmationRequest struct {
 
 func main() {
 	log.Init(logrus.InfoLevel)
-
-	clients, err := clients.NewClients(os.Getenv("GATEWAY_ADDR"), nil)
-	if err != nil {
-		panic(err)
-	}
-
-	receiptsClient := NewReceiptsClient(clients)
-	spreadsheetsClient := NewSpreadsheetsClient(clients)
+	worker := NewWorker()
+	go worker.Run()
 
 	e := commonHTTP.NewEcho()
 
@@ -40,15 +33,7 @@ func main() {
 		}
 
 		for _, ticket := range request.Tickets {
-			err = receiptsClient.IssueReceipt(c.Request().Context(), ticket)
-			if err != nil {
-				return err
-			}
-
-			err = spreadsheetsClient.AppendRow(c.Request().Context(), "tickets-to-print", []string{ticket})
-			if err != nil {
-				return err
-			}
+			worker.Enqueue(Message{Receipt, ticket}, Message{Spreadsheet, ticket})
 		}
 
 		return c.NoContent(http.StatusOK)
@@ -56,8 +41,8 @@ func main() {
 
 	logrus.Info("Server starting...")
 
-	err = e.Start(":8080")
-	if err != nil && err != http.ErrServerClosed {
+	err := e.Start(":8080")
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		panic(err)
 	}
 }

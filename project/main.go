@@ -9,9 +9,14 @@ import (
 	"github.com/ThreeDotsLabs/go-event-driven/common/clients/spreadsheets"
 	commonHTTP "github.com/ThreeDotsLabs/go-event-driven/common/http"
 	"github.com/ThreeDotsLabs/go-event-driven/common/log"
+	"github.com/ThreeDotsLabs/watermill"
+	"github.com/ThreeDotsLabs/watermill-redisstream/pkg/redisstream"
+	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/labstack/echo/v4"
+	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	"net/http"
+	"os"
 )
 
 type TicketsConfirmationRequest struct {
@@ -20,8 +25,66 @@ type TicketsConfirmationRequest struct {
 
 func main() {
 	log.Init(logrus.InfoLevel)
-	worker := NewWorker()
-	go worker.Run()
+	clients, err := clients.NewClients(os.Getenv("GATEWAY_ADDR"), nil)
+	if err != nil {
+		panic(err)
+	}
+	rdb := redis.NewClient(&redis.Options{
+		Addr: os.Getenv("REDIS_ADDR"),
+	})
+	receiptsClient := NewReceiptsClient(clients)
+	spreadsheetsClient := NewSpreadsheetsClient(clients)
+
+	pub, err := redisstream.NewPublisher(redisstream.PublisherConfig{
+		Client: rdb,
+	}, log.NewWatermill(logrus.NewEntry(logrus.StandardLogger())))
+	if err != nil {
+		panic(err)
+	}
+
+	issueReceiptConsumer, err := NewConsumer(rdb, "issue-receipt-group")
+	if err != nil {
+		panic(err)
+	}
+	defer issueReceiptConsumer.Close()
+	go func() {
+		messages, err := issueReceiptConsumer.Subscribe("issue-receipt")
+		if err != nil {
+			panic(err)
+		}
+
+		for msg := range messages {
+			ticketID := string(msg.Payload)
+			if err := receiptsClient.IssueReceipt(context.Background(), ticketID); err != nil {
+				logrus.Errorf("Error issuing receipt for ticket %s: %v", ticketID, err)
+				msg.Nack()
+				continue
+			}
+			msg.Ack()
+		}
+
+	}()
+	appendTrackerConsumer, err := NewConsumer(rdb, "append-tracker-group")
+	if err != nil {
+		panic(err)
+	}
+	defer appendTrackerConsumer.Close()
+	go func() {
+		messages, err := appendTrackerConsumer.Subscribe("append-to-tracker")
+		if err != nil {
+			panic(err)
+		}
+
+		for msg := range messages {
+			ticketID := string(msg.Payload)
+			if err := spreadsheetsClient.AppendRow(context.Background(), "tickets-to-print", []string{ticketID}); err != nil {
+				logrus.Errorf("Error appending row for ticket %s: %v", ticketID, err)
+				msg.Nack()
+				continue
+			}
+			msg.Ack()
+		}
+	}()
 
 	e := commonHTTP.NewEcho()
 
@@ -33,7 +96,12 @@ func main() {
 		}
 
 		for _, ticket := range request.Tickets {
-			worker.Enqueue(Message{Receipt, ticket}, Message{Spreadsheet, ticket})
+			if err := pub.Publish("issue-receipt", message.NewMessage(watermill.NewUUID(), []byte(ticket))); err != nil {
+				return err
+			}
+			if err := pub.Publish("append-to-tracker", message.NewMessage(watermill.NewUUID(), []byte(ticket))); err != nil {
+				return err
+			}
 		}
 
 		return c.NoContent(http.StatusOK)
@@ -41,7 +109,7 @@ func main() {
 
 	logrus.Info("Server starting...")
 
-	err := e.Start(":8080")
+	err = e.Start(":8080")
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		panic(err)
 	}

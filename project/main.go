@@ -18,6 +18,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"net/http"
 	"os"
+	"os/signal"
 )
 
 type TicketsConfirmationRequest struct {
@@ -94,6 +95,9 @@ func main() {
 
 	e := commonHTTP.NewEcho()
 
+	e.GET("/health", func(c echo.Context) error {
+		return c.String(http.StatusOK, "ok")
+	})
 	e.POST("/tickets-confirmation", func(c echo.Context) error {
 		var request TicketsConfirmationRequest
 		err := c.Bind(&request)
@@ -116,14 +120,28 @@ func main() {
 
 	logrus.Info("Server starting...")
 
-	group := errgroup.Group{}
-	group.Go(func() error {
+	ctx := context.Background()
+	ctx, cancel := signal.NotifyContext(ctx)
+	defer cancel()
+
+	g, ctx := errgroup.WithContext(ctx)
+	g.Go(func() error {
 		return router.Run(context.Background())
 	})
-	group.Go(func() error {
-		return e.Start(":8080")
+	g.Go(func() error {
+		<-router.Running()
+		err := e.Start(":8080")
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			return err
+		}
+		return nil
 	})
-	if err := group.Wait(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	g.Go(func() error {
+		<-ctx.Done()
+		return e.Shutdown(ctx)
+	})
+
+	if err := g.Wait(); err != nil {
 		panic(err)
 	}
 }

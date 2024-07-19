@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"time"
 )
 
 type Ticket struct {
@@ -56,7 +57,7 @@ func main() {
 
 	receiptsSub, err := redisstream.NewSubscriber(redisstream.SubscriberConfig{
 		Client:        rdb,
-		ConsumerGroup: "tickets-confirmation",
+		ConsumerGroup: "receipts-confirmation",
 	}, logger)
 	if err != nil {
 		panic(err)
@@ -64,7 +65,7 @@ func main() {
 
 	spreadsheetsSub, err := redisstream.NewSubscriber(redisstream.SubscriberConfig{
 		Client:        rdb,
-		ConsumerGroup: "tickets-confirmation",
+		ConsumerGroup: "spreadsheets-confirmation",
 	}, logger)
 	if err != nil {
 		panic(err)
@@ -84,14 +85,17 @@ func main() {
 
 	router.AddNoPublisherHandler(
 		"receipt-handler",
-		"issue-receipt",
+		"TicketBookingConfirmed",
 		receiptsSub,
 		func(msg *message.Message) error {
-			var payload IssueReceiptPayload
+			var payload TicketBookingConfirmedPayload
 			if err := json.Unmarshal(msg.Payload, &payload); err != nil {
 				return err
 			}
-			if err := receiptsClient.IssueReceipt(context.Background(), payload); err != nil {
+			if err := receiptsClient.IssueReceipt(context.Background(), IssueReceiptRequest{
+				TicketID: payload.TicketID,
+				Price:    payload.Price,
+			}); err != nil {
 				return fmt.Errorf("error issuing receipt for ticket %s: %v", payload.TicketID, err)
 			}
 			return nil
@@ -99,10 +103,10 @@ func main() {
 
 	router.AddNoPublisherHandler(
 		"spreadsheet-handler",
-		"append-to-tracker",
+		"TicketBookingConfirmed",
 		spreadsheetsSub,
 		func(msg *message.Message) error {
-			var payload AppendToTrackerPayload
+			var payload TicketBookingConfirmedPayload
 			if err := json.Unmarshal(msg.Payload, &payload); err != nil {
 				return err
 			}
@@ -119,16 +123,12 @@ func main() {
 	})
 	e.POST("/tickets-status", func(c echo.Context) error {
 		var request TicketsStatusRequest
-		err := c.Bind(&request)
-		if err != nil {
+		if err := c.Bind(&request); err != nil {
 			return err
 		}
 
 		for _, ticket := range request.Tickets {
-			if err := pub.Publish("issue-receipt", NewIssueReceiptMessage(ticket)); err != nil {
-				return err
-			}
-			if err := pub.Publish("append-to-tracker", NewAppendToTrackerMessage(ticket)); err != nil {
+			if err := pub.Publish("TicketBookingConfirmed", NewTicketBookingConfirmedMessage(ticket)); err != nil {
 				return err
 			}
 		}
@@ -174,7 +174,12 @@ func NewReceiptsClient(clients *clients.Clients) ReceiptsClient {
 	}
 }
 
-func (c ReceiptsClient) IssueReceipt(ctx context.Context, request IssueReceiptPayload) error {
+type IssueReceiptRequest struct {
+	TicketID string
+	Price    Money
+}
+
+func (c ReceiptsClient) IssueReceipt(ctx context.Context, request IssueReceiptRequest) error {
 	body := receipts.PutReceiptsJSONRequestBody{
 		TicketId: request.TicketID,
 		Price: receipts.Money{
@@ -220,48 +225,41 @@ func (c SpreadsheetsClient) AppendRow(ctx context.Context, spreadsheetName strin
 	return nil
 }
 
-type IssueReceiptPayload struct {
-	TicketID string       `json:"ticket_id"`
-	Price    ReceiptPrice `json:"price"`
-}
-type AppendToTrackerPayload struct {
-	TicketID      string       `json:"ticket_id"`
-	CustomerEmail string       `json:"customer_email"`
-	Price         ReceiptPrice `json:"price"`
+type Header struct {
+	ID          string `json:"id"`
+	PublishedAt string `json:"published_at"`
 }
 
-type ReceiptPrice struct {
+type Money struct {
 	Amount   string `json:"amount"`
 	Currency string `json:"currency"`
 }
 
-func NewIssueReceiptMessage(ticket Ticket) *message.Message {
-	issueReceipt := IssueReceiptPayload{
-		TicketID: ticket.TicketID,
-		Price: ReceiptPrice{
-			Amount:   ticket.Price.Amount,
-			Currency: ticket.Price.Currency,
-		},
-	}
-	payload, err := json.Marshal(issueReceipt)
-	if err != nil {
-		panic(err)
-	}
-	return message.NewMessage(watermill.NewUUID(), payload)
+type TicketBookingConfirmedPayload struct {
+	Header        Header `json:"header"`
+	TicketID      string `json:"ticket_id"`
+	CustomerEmail string `json:"customer_email"`
+	Price         Money  `json:"price"`
 }
 
-func NewAppendToTrackerMessage(ticket Ticket) *message.Message {
-	appendToTracker := AppendToTrackerPayload{
+func NewTicketBookingConfirmedMessage(ticket Ticket) *message.Message {
+	ticketBookingConfirmed := TicketBookingConfirmedPayload{
+		Header: Header{
+			ID:          watermill.NewUUID(),
+			PublishedAt: time.Now().Format(time.RFC3339),
+		},
 		TicketID:      ticket.TicketID,
 		CustomerEmail: ticket.CustomerEmail,
-		Price: ReceiptPrice{
+		Price: Money{
 			Amount:   ticket.Price.Amount,
 			Currency: ticket.Price.Currency,
 		},
 	}
-	payload, err := json.Marshal(appendToTracker)
+
+	payload, err := json.Marshal(ticketBookingConfirmed)
 	if err != nil {
 		panic(err)
 	}
-	return message.NewMessage(watermill.NewUUID(), payload)
+
+	return message.NewMessage(ticketBookingConfirmed.Header.ID, payload)
 }

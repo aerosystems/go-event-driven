@@ -43,7 +43,13 @@ func main() {
 	log.Init(logrus.InfoLevel)
 	logger := watermill.NewStdLogger(false, false)
 
-	clients, err := clients.NewClients(os.Getenv("GATEWAY_ADDR"), nil)
+	clients, err := clients.NewClients(
+		os.Getenv("GATEWAY_ADDR"),
+		func(ctx context.Context, req *http.Request) error {
+			req.Header.Set("Correlation-ID", log.CorrelationIDFromContext(ctx))
+			return nil
+		},
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -93,7 +99,7 @@ func main() {
 			if err := json.Unmarshal(msg.Payload, &payload); err != nil {
 				return err
 			}
-			if err := receiptsClient.IssueReceipt(context.Background(), IssueReceiptRequest{
+			if err := receiptsClient.IssueReceipt(msg.Context(), IssueReceiptRequest{
 				TicketID: payload.TicketID,
 				Price:    payload.Price,
 			}); err != nil {
@@ -111,7 +117,7 @@ func main() {
 			if err := json.Unmarshal(msg.Payload, &payload); err != nil {
 				return err
 			}
-			if err := spreadsheetsClient.AppendRow(context.Background(), "tickets-to-print", []string{payload.TicketID, payload.CustomerEmail, payload.Price.Amount, payload.Price.Currency}); err != nil {
+			if err := spreadsheetsClient.AppendRow(msg.Context(), "tickets-to-print", []string{payload.TicketID, payload.CustomerEmail, payload.Price.Amount, payload.Price.Currency}); err != nil {
 				return fmt.Errorf("error appending row for ticket %s: %v", payload.TicketID, err)
 			}
 			return nil
@@ -126,7 +132,7 @@ func main() {
 			if err := json.Unmarshal(msg.Payload, &payload); err != nil {
 				return err
 			}
-			if err := spreadsheetsClient.AppendRow(context.Background(), "tickets-to-refund", []string{payload.TicketID, payload.CustomerEmail, payload.Price.Amount, payload.Price.Currency}); err != nil {
+			if err := spreadsheetsClient.AppendRow(msg.Context(), "tickets-to-refund", []string{payload.TicketID, payload.CustomerEmail, payload.Price.Amount, payload.Price.Currency}); err != nil {
 				return fmt.Errorf("error appending row for ticket %s: %v", payload.TicketID, err)
 			}
 			return nil
@@ -146,11 +152,11 @@ func main() {
 		for _, ticket := range request.Tickets {
 			switch ticket.Status {
 			case "confirmed":
-				if err := pub.Publish("TicketBookingConfirmed", NewTicketBookingConfirmedMessage(ticket)); err != nil {
+				if err := pub.Publish("TicketBookingConfirmed", NewTicketBookingConfirmedMessage(ticket, c.Request().Header.Get("Correlation-ID"))); err != nil {
 					return err
 				}
 			case "canceled":
-				if err := pub.Publish("TicketBookingCanceled", NewTicketBookingCanceledMessage(ticket)); err != nil {
+				if err := pub.Publish("TicketBookingCanceled", NewTicketBookingCanceledMessage(ticket, c.Request().Header.Get("Correlation-ID"))); err != nil {
 					return err
 				}
 			}
@@ -265,7 +271,7 @@ type TicketBookingConfirmed struct {
 	Price         Money       `json:"price"`
 }
 
-func NewTicketBookingConfirmedMessage(ticket Ticket) *message.Message {
+func NewTicketBookingConfirmedMessage(ticket Ticket, correlationId string) *message.Message {
 	ticketBookingConfirmed := TicketBookingConfirmed{
 		Header: EventHeader{
 			ID:          watermill.NewUUID(),
@@ -284,7 +290,11 @@ func NewTicketBookingConfirmedMessage(ticket Ticket) *message.Message {
 		panic(err)
 	}
 
-	return message.NewMessage(ticketBookingConfirmed.Header.ID, payload)
+	msg := message.NewMessage(ticketBookingConfirmed.Header.ID, payload)
+	if correlationId != "" {
+		msg.Metadata.Set("correlation_id", correlationId)
+	}
+	return msg
 }
 
 type TicketBookingCanceled struct {
@@ -294,7 +304,7 @@ type TicketBookingCanceled struct {
 	Price         Money       `json:"price"`
 }
 
-func NewTicketBookingCanceledMessage(ticket Ticket) *message.Message {
+func NewTicketBookingCanceledMessage(ticket Ticket, correlationId string) *message.Message {
 	ticketBookingCanceled := TicketBookingCanceled{
 		Header: EventHeader{
 			ID:          watermill.NewUUID(),
@@ -313,7 +323,11 @@ func NewTicketBookingCanceledMessage(ticket Ticket) *message.Message {
 		panic(err)
 	}
 
-	return message.NewMessage(ticketBookingCanceled.Header.ID, payload)
+	msg := message.NewMessage(ticketBookingCanceled.Header.ID, payload)
+	if correlationId != "" {
+		msg.Metadata.Set("correlation_id", correlationId)
+	}
+	return msg
 }
 
 func LoggingMiddleware(next message.HandlerFunc) message.HandlerFunc {

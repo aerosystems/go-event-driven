@@ -13,6 +13,7 @@ import (
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill-redisstream/pkg/redisstream"
 	"github.com/ThreeDotsLabs/watermill/message"
+	"github.com/ThreeDotsLabs/watermill/message/router/middleware"
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
@@ -88,7 +89,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	router.AddMiddleware(TracingMiddleware, LoggingMiddleware, HandleErrorsMiddleware)
+	router.AddMiddleware(TracingMiddleware, LoggingMiddleware, HandleErrorsMiddleware, ExponentialBackoffMiddleware)
 
 	router.AddNoPublisherHandler(
 		"receipt-handler",
@@ -367,5 +368,18 @@ func HandleErrorsMiddleware(next message.HandlerFunc) message.HandlerFunc {
 			logger.WithField("error", err.Error()).WithField("message_uuid", message.UUID).Error("Message handling error")
 		}
 		return messages, nil
+	})
+}
+
+func ExponentialBackoffMiddleware(next message.HandlerFunc) message.HandlerFunc {
+	retry := middleware.Retry{
+		MaxRetries:      10,
+		InitialInterval: time.Millisecond * 100,
+		MaxInterval:     time.Second,
+		Multiplier:      2,
+		Logger:          watermill.NewStdLogger(false, false),
+	}
+	return retry.Middleware(func(message *message.Message) ([]*message.Message, error) {
+		return next(message)
 	})
 }

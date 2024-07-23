@@ -88,7 +88,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	router.AddMiddleware(LoggingMiddleware)
+	router.AddMiddleware(TracingMiddleware, LoggingMiddleware)
 
 	router.AddNoPublisherHandler(
 		"receipt-handler",
@@ -99,6 +99,9 @@ func main() {
 			if err := json.Unmarshal(msg.Payload, &payload); err != nil {
 				return err
 			}
+			reqCorrelationID := msg.Metadata.Get("correlation_id")
+			ctx := log.ContextWithCorrelationID(msg.Context(), reqCorrelationID)
+			msg.SetContext(ctx)
 			if err := receiptsClient.IssueReceipt(msg.Context(), IssueReceiptRequest{
 				TicketID: payload.TicketID,
 				Price:    payload.Price,
@@ -117,6 +120,9 @@ func main() {
 			if err := json.Unmarshal(msg.Payload, &payload); err != nil {
 				return err
 			}
+			reqCorrelationID := msg.Metadata.Get("correlation_id")
+			ctx := log.ContextWithCorrelationID(msg.Context(), reqCorrelationID)
+			msg.SetContext(ctx)
 			if err := spreadsheetsClient.AppendRow(msg.Context(), "tickets-to-print", []string{payload.TicketID, payload.CustomerEmail, payload.Price.Amount, payload.Price.Currency}); err != nil {
 				return fmt.Errorf("error appending row for ticket %s: %v", payload.TicketID, err)
 			}
@@ -132,6 +138,9 @@ func main() {
 			if err := json.Unmarshal(msg.Payload, &payload); err != nil {
 				return err
 			}
+			reqCorrelationID := msg.Metadata.Get("correlation_id")
+			ctx := log.ContextWithCorrelationID(msg.Context(), reqCorrelationID)
+			msg.SetContext(ctx)
 			if err := spreadsheetsClient.AppendRow(msg.Context(), "tickets-to-refund", []string{payload.TicketID, payload.CustomerEmail, payload.Price.Amount, payload.Price.Currency}); err != nil {
 				return fmt.Errorf("error appending row for ticket %s: %v", payload.TicketID, err)
 			}
@@ -332,7 +341,17 @@ func NewTicketBookingCanceledMessage(ticket Ticket, correlationId string) *messa
 
 func LoggingMiddleware(next message.HandlerFunc) message.HandlerFunc {
 	return message.HandlerFunc(func(message *message.Message) ([]*message.Message, error) {
-		logrus.WithField("message_uuid", message.UUID).Info("Handling a message")
+		logger := log.FromContext(message.Context())
+		logger.WithField("message_uuid", "message.UUID").Info("Handling a message")
+		return next(message)
+	})
+}
+
+func TracingMiddleware(next message.HandlerFunc) message.HandlerFunc {
+	return message.HandlerFunc(func(message *message.Message) ([]*message.Message, error) {
+		correlationID := message.Metadata.Get("correlation_id")
+		ctx := log.ToContext(message.Context(), logrus.WithFields(logrus.Fields{"correlation_id": correlationID}))
+		message.SetContext(ctx)
 		return next(message)
 	})
 }

@@ -88,7 +88,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	router.AddMiddleware(TracingMiddleware, LoggingMiddleware)
+	router.AddMiddleware(TracingMiddleware, LoggingMiddleware, HandleErrorsMiddleware)
 
 	router.AddNoPublisherHandler(
 		"receipt-handler",
@@ -106,7 +106,8 @@ func main() {
 				TicketID: payload.TicketID,
 				Price:    payload.Price,
 			}); err != nil {
-				return fmt.Errorf("error issuing receipt for ticket %s: %v", payload.TicketID, err)
+				//return fmt.Errorf("error issuing receipt for ticket %s: %v", payload.TicketID, err)
+				return err
 			}
 			return nil
 		})
@@ -124,7 +125,8 @@ func main() {
 			ctx := log.ContextWithCorrelationID(msg.Context(), reqCorrelationID)
 			msg.SetContext(ctx)
 			if err := spreadsheetsClient.AppendRow(msg.Context(), "tickets-to-print", []string{payload.TicketID, payload.CustomerEmail, payload.Price.Amount, payload.Price.Currency}); err != nil {
-				return fmt.Errorf("error appending row for ticket %s: %v", payload.TicketID, err)
+				//return fmt.Errorf("error appending row for ticket %s: %v", payload.TicketID, err)
+				return err
 			}
 			return nil
 		})
@@ -142,7 +144,8 @@ func main() {
 			ctx := log.ContextWithCorrelationID(msg.Context(), reqCorrelationID)
 			msg.SetContext(ctx)
 			if err := spreadsheetsClient.AppendRow(msg.Context(), "tickets-to-refund", []string{payload.TicketID, payload.CustomerEmail, payload.Price.Amount, payload.Price.Currency}); err != nil {
-				return fmt.Errorf("error appending row for ticket %s: %v", payload.TicketID, err)
+				//return fmt.Errorf("error appending row for ticket %s: %v", payload.TicketID, err)
+				return err
 			}
 			return nil
 		})
@@ -353,5 +356,16 @@ func TracingMiddleware(next message.HandlerFunc) message.HandlerFunc {
 		ctx := log.ToContext(message.Context(), logrus.WithFields(logrus.Fields{"correlation_id": correlationID}))
 		message.SetContext(ctx)
 		return next(message)
+	})
+}
+
+func HandleErrorsMiddleware(next message.HandlerFunc) message.HandlerFunc {
+	return message.HandlerFunc(func(message *message.Message) ([]*message.Message, error) {
+		messages, err := next(message)
+		if err != nil {
+			logger := log.FromContext(message.Context())
+			logger.WithField("error", err.Error()).WithField("message_uuid", message.UUID).Error("Message handling error")
+		}
+		return messages, nil
 	})
 }

@@ -108,6 +108,9 @@ func main() {
 			if err := json.Unmarshal(msg.Payload, &payload); err != nil {
 				return err
 			}
+			if payload.Price.Currency == "" {
+				payload.Price.Currency = "USD"
+			}
 			reqCorrelationID := msg.Metadata.Get("correlation_id")
 			ctx := log.ContextWithCorrelationID(msg.Context(), reqCorrelationID)
 			msg.SetContext(ctx)
@@ -134,6 +137,9 @@ func main() {
 			var payload TicketBookingConfirmed
 			if err := json.Unmarshal(msg.Payload, &payload); err != nil {
 				return err
+			}
+			if payload.Price.Currency == "" {
+				payload.Price.Currency = "USD"
 			}
 			reqCorrelationID := msg.Metadata.Get("correlation_id")
 			ctx := log.ContextWithCorrelationID(msg.Context(), reqCorrelationID)

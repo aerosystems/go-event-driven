@@ -24,6 +24,8 @@ import (
 	"time"
 )
 
+const brokenMsgUuid = "2beaf5bc-d5e4-4653-b075-2b36bbf28949"
+
 type Ticket struct {
 	TicketID      string      `json:"ticket_id"`
 	Status        string      `json:"status"`
@@ -96,6 +98,12 @@ func main() {
 		"TicketBookingConfirmed",
 		receiptsSub,
 		func(msg *message.Message) error {
+			if msg.UUID == brokenMsgUuid {
+				return nil
+			}
+			if msg.Metadata.Get("type") != "TicketBookingConfirmed" {
+				return nil
+			}
 			var payload TicketBookingConfirmed
 			if err := json.Unmarshal(msg.Payload, &payload); err != nil {
 				return err
@@ -107,7 +115,6 @@ func main() {
 				TicketID: payload.TicketID,
 				Price:    payload.Price,
 			}); err != nil {
-				//return fmt.Errorf("error issuing receipt for ticket %s: %v", payload.TicketID, err)
 				return err
 			}
 			return nil
@@ -118,6 +125,12 @@ func main() {
 		"TicketBookingConfirmed",
 		spreadsheetsSub,
 		func(msg *message.Message) error {
+			if msg.UUID == brokenMsgUuid {
+				return nil
+			}
+			if msg.Metadata.Get("type") != "TicketBookingConfirmed" {
+				return nil
+			}
 			var payload TicketBookingConfirmed
 			if err := json.Unmarshal(msg.Payload, &payload); err != nil {
 				return err
@@ -126,7 +139,6 @@ func main() {
 			ctx := log.ContextWithCorrelationID(msg.Context(), reqCorrelationID)
 			msg.SetContext(ctx)
 			if err := spreadsheetsClient.AppendRow(msg.Context(), "tickets-to-print", []string{payload.TicketID, payload.CustomerEmail, payload.Price.Amount, payload.Price.Currency}); err != nil {
-				//return fmt.Errorf("error appending row for ticket %s: %v", payload.TicketID, err)
 				return err
 			}
 			return nil
@@ -137,6 +149,12 @@ func main() {
 		"TicketBookingCanceled",
 		spreadsheetsSub,
 		func(msg *message.Message) error {
+			if msg.UUID == brokenMsgUuid {
+				return nil
+			}
+			if msg.Metadata.Get("type") != "TicketBookingCanceled" {
+				return nil
+			}
 			var payload TicketBookingCanceled
 			if err := json.Unmarshal(msg.Payload, &payload); err != nil {
 				return err
@@ -145,7 +163,6 @@ func main() {
 			ctx := log.ContextWithCorrelationID(msg.Context(), reqCorrelationID)
 			msg.SetContext(ctx)
 			if err := spreadsheetsClient.AppendRow(msg.Context(), "tickets-to-refund", []string{payload.TicketID, payload.CustomerEmail, payload.Price.Amount, payload.Price.Currency}); err != nil {
-				//return fmt.Errorf("error appending row for ticket %s: %v", payload.TicketID, err)
 				return err
 			}
 			return nil
@@ -307,6 +324,7 @@ func NewTicketBookingConfirmedMessage(ticket Ticket, correlationId string) *mess
 	if correlationId != "" {
 		msg.Metadata.Set("correlation_id", correlationId)
 	}
+	msg.Metadata.Set("type", "TicketBookingConfirmed")
 	return msg
 }
 
@@ -340,6 +358,7 @@ func NewTicketBookingCanceledMessage(ticket Ticket, correlationId string) *messa
 	if correlationId != "" {
 		msg.Metadata.Set("correlation_id", correlationId)
 	}
+	msg.Metadata.Set("type", "TicketBookingCanceled")
 	return msg
 }
 

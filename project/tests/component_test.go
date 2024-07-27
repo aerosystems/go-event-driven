@@ -1,8 +1,13 @@
 package tests_test
 
 import (
+	"context"
+	"github.com/redis/go-redis/v9"
 	"net/http"
 	"testing"
+	"tickets/config"
+	"tickets/infra/adapters"
+	"tickets/service"
 	"time"
 
 	"github.com/stretchr/testify/assert"
@@ -10,7 +15,17 @@ import (
 )
 
 func TestComponent(t *testing.T) {
-	// place for your tests!
+	cfg := config.NewConfig()
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: cfg.RedisAddress,
+	})
+	spreadsheetsClientMock := &adapters.SpreadsheetsClientMock{}
+	receiptsClientMock := &adapters.ReceiptsClientMock{}
+
+	go func() {
+		svc := service.NewService(redisClient, spreadsheetsClientMock, receiptsClientMock)
+		assert.NoError(t, svc.Run(context.Background()))
+	}()
 
 	waitForHttpServer(t)
 }

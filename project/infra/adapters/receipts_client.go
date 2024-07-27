@@ -6,6 +6,7 @@ import (
 	"github.com/ThreeDotsLabs/go-event-driven/common/clients"
 	"github.com/ThreeDotsLabs/go-event-driven/common/clients/receipts"
 	"net/http"
+	"sync"
 	"tickets/models"
 )
 
@@ -36,5 +37,19 @@ func (c ReceiptsClient) IssueReceipt(ctx context.Context, request models.IssueRe
 		return fmt.Errorf("unexpected status code: %v", receiptsResp.StatusCode())
 	}
 
+	return nil
+}
+
+type ReceiptsClientMock struct {
+	mock sync.Mutex
+
+	IssueReceipts []models.IssueReceiptRequest
+}
+
+func (rcm *ReceiptsClientMock) IssueReceipt(_ context.Context, request models.IssueReceiptRequest) error {
+	rcm.mock.Lock()
+	defer rcm.mock.Unlock()
+
+	rcm.IssueReceipts = append(rcm.IssueReceipts, request)
 	return nil
 }

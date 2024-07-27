@@ -6,6 +6,7 @@ import (
 	"github.com/ThreeDotsLabs/go-event-driven/common/clients"
 	"github.com/ThreeDotsLabs/go-event-driven/common/clients/spreadsheets"
 	"net/http"
+	"sync"
 )
 
 type SpreadsheetsClient struct {
@@ -33,5 +34,19 @@ func (c SpreadsheetsClient) AppendRow(ctx context.Context, spreadsheetName strin
 		return fmt.Errorf("unexpected status code: %v", sheetsResp.StatusCode())
 	}
 
+	return nil
+}
+
+type SpreadsheetsClientMock struct {
+	mock sync.Mutex
+
+	SpreadsheetNames []string
+}
+
+func (scm *SpreadsheetsClientMock) AppendRow(_ context.Context, spreadsheetName string, _ []string) error {
+	scm.mock.Lock()
+	defer scm.mock.Unlock()
+
+	scm.SpreadsheetNames = append(scm.SpreadsheetNames, spreadsheetName)
 	return nil
 }

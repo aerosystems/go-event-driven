@@ -19,12 +19,7 @@ func NewReceiptsClient(clients *clients.Clients) *ReceiptsClient {
 	}
 }
 
-type IssueReceiptRequest struct {
-	TicketID string
-	Price    models.Money
-}
-
-func (c ReceiptsClient) IssueReceipt(ctx context.Context, request IssueReceiptRequest) error {
+func (c ReceiptsClient) IssueReceipt(ctx context.Context, request models.IssueReceiptRequest) error {
 	body := receipts.PutReceiptsJSONRequestBody{
 		TicketId: request.TicketID,
 		Price: receipts.Money{

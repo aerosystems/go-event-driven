@@ -5,7 +5,7 @@ import (
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill-redisstream/pkg/redisstream"
 	"github.com/ThreeDotsLabs/watermill/message"
-	"tickets/presenters/pubsub/handlers/ticket"
+	PubSubTicketHandler "tickets/presenters/pubsub/handlers/ticket"
 )
 
 type Router struct {
@@ -44,7 +44,7 @@ func NewPubSubRouter(logger watermill.LoggerAdapter, ticketHandler *PubSubTicket
 		"spreadsheet-confirmed-handler",
 		"TicketBookingConfirmed",
 		r.spreadsheetsSub,
-		r.ticketHandler.SpreadsheetCancel,
+		r.ticketHandler.SpreadsheetConfirm,
 	)
 
 	r.router.AddNoPublisherHandler(

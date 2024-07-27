@@ -24,7 +24,10 @@ func (h Handler) ReceiptConfirm(msg *message.Message) error {
 	reqCorrelationID := msg.Metadata.Get("correlation_id")
 	ctx := log.ContextWithCorrelationID(msg.Context(), reqCorrelationID)
 	msg.SetContext(ctx)
-	if err := h.spreadsheetsClient.AppendRow(msg.Context(), "tickets-to-print", []string{payload.TicketID, payload.CustomerEmail, payload.Price.Amount, payload.Price.Currency}); err != nil {
+	if err := h.receiptsClient.IssueReceipt(msg.Context(), models.IssueReceiptRequest{
+		TicketID: payload.TicketID,
+		Price:    payload.Price,
+	}); err != nil {
 		return err
 	}
 	return nil

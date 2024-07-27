@@ -23,6 +23,8 @@ func (c SpreadsheetsClient) AppendRow(ctx context.Context, spreadsheetName strin
 		Columns: row,
 	}
 
+	fmt.Println("spreadsheetName:" + spreadsheetName)
+
 	sheetsResp, err := c.clients.Spreadsheets.PostSheetsSheetRowsWithResponse(ctx, spreadsheetName, request)
 	if err != nil {
 		return err

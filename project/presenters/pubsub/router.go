@@ -9,55 +9,43 @@ import (
 )
 
 type Router struct {
-	router          *message.Router
-	logger          watermill.LoggerAdapter
-	ticketHandler   *PubSubTicketHandler.Handler
-	spreadsheetsSub *redisstream.Subscriber
-	receiptsSub     *redisstream.Subscriber
+	router *message.Router
 }
 
 func NewPubSubRouter(logger watermill.LoggerAdapter, ticketHandler *PubSubTicketHandler.Handler, spreadsheetsSub *redisstream.Subscriber, receiptsSub *redisstream.Subscriber) *Router {
-	var err error
-	var r Router
-
-	r = Router{
-		logger:          logger,
-		ticketHandler:   ticketHandler,
-		spreadsheetsSub: spreadsheetsSub,
-		receiptsSub:     receiptsSub,
-	}
-
-	r.router, err = message.NewRouter(message.RouterConfig{}, r.logger)
+	router, err := message.NewRouter(message.RouterConfig{}, logger)
 	if err != nil {
 		panic(err)
 	}
 
-	r.router.AddMiddleware(TracingMiddleware, LoggingMiddleware, HandleErrorsMiddleware, ExponentialBackoffMiddleware)
+	router.AddMiddleware(TracingMiddleware, LoggingMiddleware, HandleErrorsMiddleware, ExponentialBackoffMiddleware)
 
-	r.router.AddNoPublisherHandler(
+	router.AddNoPublisherHandler(
 		"receipt-handler",
 		"TicketBookingConfirmed",
-		r.receiptsSub,
-		r.ticketHandler.ReceiptConfirm)
+		receiptsSub,
+		ticketHandler.ReceiptConfirm)
 
-	r.router.AddNoPublisherHandler(
+	router.AddNoPublisherHandler(
 		"spreadsheet-confirmed-handler",
 		"TicketBookingConfirmed",
-		r.spreadsheetsSub,
-		r.ticketHandler.SpreadsheetConfirm,
+		spreadsheetsSub,
+		ticketHandler.SpreadsheetConfirm,
 	)
 
-	r.router.AddNoPublisherHandler(
+	router.AddNoPublisherHandler(
 		"spreadsheet-canceled-handler",
 		"TicketBookingCanceled",
-		r.spreadsheetsSub,
-		r.ticketHandler.SpreadsheetCancel)
+		spreadsheetsSub,
+		ticketHandler.SpreadsheetCancel)
 
-	return &r
+	return &Router{
+		router: router,
+	}
 }
 
-func (r *Router) Run() error {
-	return r.router.Run(context.Background())
+func (r *Router) Run(ctx context.Context) error {
+	return r.router.Run(ctx)
 }
 
 func (r *Router) Running() chan struct{} {

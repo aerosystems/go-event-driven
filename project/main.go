@@ -7,6 +7,8 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	"net/http"
+	"os"
+	"os/signal"
 	"tickets/config"
 	"tickets/infra/adapters"
 	"tickets/service"
@@ -38,9 +40,10 @@ func main() {
 	spreadsheetsClient := adapters.NewSpreadsheetsClient(apiClients)
 	receiptsClient := adapters.NewReceiptsClient(apiClients)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	svc := service.NewService(rdb, spreadsheetsClient, receiptsClient)
+
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Kill, os.Interrupt)
 	defer cancel()
 
-	svc := service.NewService(rdb, spreadsheetsClient, receiptsClient)
 	svc.Run(ctx)
 }

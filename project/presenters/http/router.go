@@ -6,30 +6,44 @@ import (
 	"fmt"
 	commonHTTP "github.com/ThreeDotsLabs/go-event-driven/common/http"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
+	"github.com/sirupsen/logrus"
 	"net/http"
 	HttpTicketHandler "tickets/presenters/http/handlers/ticket"
 )
 
+const webPort = 8080
+
 type Router struct {
-	port          int
-	ticketHandler *HttpTicketHandler.Handler
-	echo          *echo.Echo
+	echo *echo.Echo
 }
 
-func NewRouter(port int, ticketHandler *HttpTicketHandler.Handler) *Router {
+func NewRouter(log *logrus.Logger, ticketHandler *HttpTicketHandler.Handler) *Router {
+	e := commonHTTP.NewEcho()
+	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
+		LogURI:    true,
+		LogStatus: true,
+		LogValuesFunc: func(c echo.Context, values middleware.RequestLoggerValues) error {
+			log.WithFields(logrus.Fields{
+				"URI":    values.URI,
+				"status": values.Status,
+			}).Info("request")
+
+			return nil
+		},
+	}))
+	e.Use(middleware.Recover())
+
+	e.GET("/health", ticketHandler.Health)
+	e.POST("/tickets-status", ticketHandler.TicketsStatus)
+
 	return &Router{
-		port,
-		ticketHandler,
-		commonHTTP.NewEcho(),
+		e,
 	}
 }
 
 func (r Router) Run() error {
-
-	r.echo.GET("/health", r.ticketHandler.Health)
-	r.echo.POST("/tickets-status", r.ticketHandler.TicketsStatus)
-
-	err := r.echo.Start(fmt.Sprintf(":%d", r.port))
+	err := r.echo.Start(fmt.Sprintf(":%d", webPort))
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}

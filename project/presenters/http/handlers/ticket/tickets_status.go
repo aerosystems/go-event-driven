@@ -1,6 +1,7 @@
 package HttpTicketHandler
 
 import (
+	"fmt"
 	"github.com/labstack/echo/v4"
 	"net/http"
 	"tickets/models"
@@ -17,6 +18,7 @@ func (h Handler) TicketsStatus(c echo.Context) error {
 	}
 
 	for _, ticket := range request.Tickets {
+		fmt.Println(ticket.TicketID, ticket.Status)
 		switch ticket.Status {
 		case "confirmed":
 			if err := h.ticketPub.Publish("TicketBookingConfirmed", models.NewTicketBookingConfirmedMessage(ticket, c.Request().Header.Get("Correlation-ID"))); err != nil {

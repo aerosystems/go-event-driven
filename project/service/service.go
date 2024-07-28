@@ -7,7 +7,6 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
-	"os/signal"
 	HttpRouter "tickets/presenters/http"
 	HttpTicketHandler "tickets/presenters/http/handlers/ticket"
 	PubSubRouter "tickets/presenters/pubsub"
@@ -15,33 +14,33 @@ import (
 	"tickets/presenters/pubsub/subs"
 )
 
-const webPort = 8080
-
 type Service struct {
 	httpRouter   *HttpRouter.Router
 	pubsubRouter *PubSubRouter.Router
 }
 
 func NewService(redisClient *redis.Client, spreadsheetsClient SpreadsheetsClient, receiptsClient ReceiptsClient) *Service {
-	logger := log.NewWatermill(log.FromContext(context.Background()))
+	logrusLogger := logrus.New()
+	logrusEntry := logrusLogger.WithContext(context.Background())
+	watermillLogger := log.NewWatermill(logrusEntry)
 
 	ticketPub, err := redisstream.NewPublisher(redisstream.PublisherConfig{
 		Client: redisClient,
-	}, log.NewWatermill(logrus.NewEntry(logrus.StandardLogger())))
+	}, watermillLogger)
 	if err != nil {
 		panic(err)
 	}
 
 	httpTicketHandler := HttpTicketHandler.NewHttpTicketHandler(ticketPub)
 
-	httpRouter := HttpRouter.NewRouter(webPort, httpTicketHandler)
+	httpRouter := HttpRouter.NewRouter(logrusLogger, httpTicketHandler)
 
 	pubsubTicketHandler := PubSubTicketHandler.NewTicketHandler(spreadsheetsClient, receiptsClient)
 
-	receiptsSub := subs.NewReceiptsSub(logger, redisClient)
-	spreadsheetsSub := subs.NewSpreadsheetsSub(logger, redisClient)
+	receiptsSub := subs.NewReceiptsSub(watermillLogger, redisClient)
+	spreadsheetsSub := subs.NewSpreadsheetsSub(watermillLogger, redisClient)
 
-	pubsubRouter := PubSubRouter.NewPubSubRouter(logger, pubsubTicketHandler, spreadsheetsSub, receiptsSub)
+	pubsubRouter := PubSubRouter.NewPubSubRouter(watermillLogger, pubsubTicketHandler, spreadsheetsSub, receiptsSub)
 
 	return &Service{
 		httpRouter,
@@ -50,12 +49,9 @@ func NewService(redisClient *redis.Client, spreadsheetsClient SpreadsheetsClient
 }
 
 func (s Service) Run(ctx context.Context) error {
-	ctx, cancel := signal.NotifyContext(ctx)
-	defer cancel()
-
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
-		return s.pubsubRouter.Run()
+		return s.pubsubRouter.Run(ctx)
 	})
 	g.Go(func() error {
 		<-s.pubsubRouter.Running()
@@ -65,7 +61,6 @@ func (s Service) Run(ctx context.Context) error {
 		<-ctx.Done()
 		return s.httpRouter.Shutdown(ctx)
 	})
-
 	if err := g.Wait(); err != nil {
 		panic(err)
 	}

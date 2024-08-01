@@ -1,13 +1,15 @@
 package HttpTicketHandler
 
-import "github.com/ThreeDotsLabs/watermill-redisstream/pkg/redisstream"
+import (
+	"github.com/ThreeDotsLabs/watermill/components/cqrs"
+)
 
 type Handler struct {
-	ticketPub *redisstream.Publisher
+	eventBus *cqrs.EventBus
 }
 
-func NewHttpTicketHandler(ticketPub *redisstream.Publisher) *Handler {
+func NewHttpTicketHandler(eventBus *cqrs.EventBus) *Handler {
 	return &Handler{
-		ticketPub,
+		eventBus,
 	}
 }

@@ -2,8 +2,10 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"github.com/ThreeDotsLabs/go-event-driven/common/log"
 	"github.com/ThreeDotsLabs/watermill-redisstream/pkg/redisstream"
+	"github.com/ThreeDotsLabs/watermill/components/cqrs"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
@@ -31,7 +33,17 @@ func NewService(redisClient *redis.Client, spreadsheetsClient SpreadsheetsClient
 		panic(err)
 	}
 
-	httpTicketHandler := HttpTicketHandler.NewHttpTicketHandler(ticketPub)
+	eventBus, err := cqrs.NewEventBusWithConfig(ticketPub, cqrs.EventBusConfig{
+		GeneratePublishTopic: func(params cqrs.GenerateEventPublishTopicParams) (string, error) {
+			return fmt.Sprintf("svc-tickets-%s", params.EventName), nil
+		},
+		Logger: watermillLogger,
+	})
+	if err == nil {
+		panic(err)
+	}
+
+	httpTicketHandler := HttpTicketHandler.NewHttpTicketHandler(eventBus)
 
 	httpRouter := HttpRouter.NewRouter(logrusLogger, httpTicketHandler)
 

@@ -12,8 +12,8 @@ type Router struct {
 	router *message.Router
 }
 
-func NewPubSubRouter(logger watermill.LoggerAdapter, ticketHandler *PubSubTicketHandler.Handler, spreadsheetsSub *redisstream.Subscriber, receiptsSub *redisstream.Subscriber) *Router {
-	router, err := message.NewRouter(message.RouterConfig{}, logger)
+func NewPubSubRouter(watermillLogger watermill.LoggerAdapter, ticketHandler *PubSubTicketHandler.Handler, spreadsheetsSub *redisstream.Subscriber, receiptsSub *redisstream.Subscriber) *Router {
+	router, err := message.NewRouter(message.RouterConfig{}, watermillLogger)
 	if err != nil {
 		panic(err)
 	}
@@ -40,7 +40,7 @@ func NewPubSubRouter(logger watermill.LoggerAdapter, ticketHandler *PubSubTicket
 		ticketHandler.SpreadsheetCancel)
 
 	return &Router{
-		router: router,
+		router,
 	}
 }
 

@@ -1,6 +1,7 @@
 package HttpTicketHandler
 
 import (
+	"context"
 	"fmt"
 	"github.com/labstack/echo/v4"
 	"net/http"
@@ -21,11 +22,19 @@ func (h Handler) TicketsStatus(c echo.Context) error {
 		fmt.Println(ticket.TicketID, ticket.Status)
 		switch ticket.Status {
 		case "confirmed":
-			if err := h.ticketPub.Publish("TicketBookingConfirmed", models.NewTicketBookingConfirmedMessage(ticket, c.Request().Header.Get("Correlation-ID"))); err != nil {
+			//TODO: remove after refactoring
+			//if err := h.ticketPub.Publish("TicketBookingConfirmed", models.NewTicketBookingConfirmedMessage(ticket, c.Request().Header.Get("Correlation-ID"))); err != nil {
+			//	return err
+			//}
+			if err := h.eventBus.Publish(context.Background(), models.NewTicketBookingConfirmedMessage(ticket, c.Request().Header.Get("Correlation-ID"))); err != nil {
 				return err
 			}
 		case "canceled":
-			if err := h.ticketPub.Publish("TicketBookingCanceled", models.NewTicketBookingCanceledMessage(ticket, c.Request().Header.Get("Correlation-ID"))); err != nil {
+			//TODO: remove after refactoring
+			//if err := h.ticketPub.Publish("TicketBookingCanceled", models.NewTicketBookingCanceledMessage(ticket, c.Request().Header.Get("Correlation-ID"))); err != nil {
+			//	return err
+			//}
+			if err := h.eventBus.Publish(context.Background(), models.NewTicketBookingCanceledMessage(ticket, c.Request().Header.Get("Correlation-ID"))); err != nil {
 				return err
 			}
 		}

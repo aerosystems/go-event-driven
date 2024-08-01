@@ -21,7 +21,7 @@ func NewEventProcessor(
 				return params.EventName, nil
 			},
 			SubscriberConstructor: func(params cqrs.EventProcessorSubscriberConstructorParams) (message.Subscriber, error) {
-				return redisstream.NewSubscriber(redisstream.SubscriberConfig{Client: rdb, ConsumerGroup: params.HandlerName}, logger)
+				return redisstream.NewSubscriber(redisstream.SubscriberConfig{Client: rdb, ConsumerGroup: "svc-users" + params.HandlerName}, logger)
 			},
 			Marshaler: marshaler,
 			Logger:    logger,

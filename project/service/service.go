@@ -12,8 +12,7 @@ import (
 	HttpRouter "tickets/presenters/http"
 	HttpTicketHandler "tickets/presenters/http/handlers/ticket"
 	PubSubRouter "tickets/presenters/pubsub"
-	PubSubTicketHandler "tickets/presenters/pubsub/handlers/ticket"
-	"tickets/presenters/pubsub/subs"
+	"tickets/presenters/pubsub/handlers"
 )
 
 type Service struct {
@@ -47,13 +46,11 @@ func NewService(redisClient *redis.Client, spreadsheetsClient SpreadsheetsClient
 
 	httpRouter := HttpRouter.NewRouter(logrusLogger, httpTicketHandler)
 
-	pubsubTicketHandler := PubSubTicketHandler.NewTicketHandler(spreadsheetsClient, receiptsClient)
+	receiptConfirmedHandler := handlers.NewReceiptConfirmedHandler(receiptsClient)
+	spreadsheetConfirmedHandler := handlers.NewSpreadsheetConfirmedHandler(spreadsheetsClient)
+	spreadsheetCanceledHandler := handlers.NewSpreadsheetCanceledHandler(spreadsheetsClient)
 
-	receiptsSub := subs.NewReceiptsSub(watermillLogger, redisClient)
-	spreadsheetsSub := subs.NewSpreadsheetsSub(watermillLogger, redisClient)
-
-	pubsubRouter := PubSubRouter.NewPubSubRouter(watermillLogger, pubsubTicketHandler, spreadsheetsSub, receiptsSub)
-
+	pubsubRouter := PubSubRouter.NewPubSubRouter(watermillLogger, redisClient, receiptConfirmedHandler, spreadsheetConfirmedHandler, spreadsheetCanceledHandler)
 	return &Service{
 		httpRouter,
 		pubsubRouter,

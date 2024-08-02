@@ -1,4 +1,4 @@
-package PubSubTicketHandler
+package handlers
 
 import (
 	"context"

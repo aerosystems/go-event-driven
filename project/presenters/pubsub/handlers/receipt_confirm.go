@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"tickets/models"
 )
 
@@ -22,6 +23,7 @@ func (r *ReceiptConfirmedHandler) NewEvent() interface{} {
 }
 
 func (r *ReceiptConfirmedHandler) Handle(ctx context.Context, event any) error {
+	fmt.Println("!!! ReceiptConfirmedHandler")
 	e := event.(*models.TicketBookingConfirmed)
 	if e.Price.Currency == "" {
 		e.Price.Currency = "USD"

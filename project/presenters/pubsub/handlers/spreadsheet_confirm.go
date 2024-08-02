@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"tickets/models"
 )
 
@@ -16,15 +17,16 @@ func NewSpreadsheetConfirmedHandler(spreadsheetsClient SpreadsheetsClient) *Spre
 }
 
 func (h *SpreadsheetConfirmedHandler) HandlerName() string {
-	return "SpreadsheetCanceledHandler"
+	return "SpreadsheetConfirmedHandler"
 }
 
 func (h *SpreadsheetConfirmedHandler) NewEvent() interface{} {
-	return &models.TicketBookingCanceled{}
+	return &models.TicketBookingConfirmed{}
 }
 
 func (h *SpreadsheetConfirmedHandler) Handle(ctx context.Context, event any) error {
-	e := event.(*models.TicketBookingCanceled)
+	fmt.Println("!!! SpreadsheetConfirmedHandler")
+	e := event.(*models.TicketBookingConfirmed)
 	if err := h.spreadsheetsClient.AppendRow(ctx, "tickets-to-print", []string{e.TicketID, e.CustomerEmail, e.Price.Amount, e.Price.Currency}); err != nil {
 		return err
 	}

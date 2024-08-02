@@ -1,9 +1,7 @@
 package models
 
 import (
-	"encoding/json"
 	"github.com/ThreeDotsLabs/watermill"
-	"github.com/ThreeDotsLabs/watermill/message"
 	"time"
 )
 
@@ -14,8 +12,8 @@ type TicketBookingCanceled struct {
 	Price         Money       `json:"price"`
 }
 
-func NewTicketBookingCanceledMessage(ticket Ticket, correlationId string) *message.Message {
-	ticketBookingCanceled := TicketBookingCanceled{
+func NewTicketBookingCanceledMessage(ticket Ticket) TicketBookingCanceled {
+	return TicketBookingCanceled{
 		Header: EventHeader{
 			ID:          watermill.NewUUID(),
 			PublishedAt: time.Now().Format(time.RFC3339),
@@ -27,16 +25,4 @@ func NewTicketBookingCanceledMessage(ticket Ticket, correlationId string) *messa
 			Currency: ticket.Price.Currency,
 		},
 	}
-
-	payload, err := json.Marshal(ticketBookingCanceled)
-	if err != nil {
-		panic(err)
-	}
-
-	msg := message.NewMessage(ticketBookingCanceled.Header.ID, payload)
-	if correlationId != "" {
-		msg.Metadata.Set("correlation_id", correlationId)
-	}
-	msg.Metadata.Set("type", "TicketBookingCanceled")
-	return msg
 }

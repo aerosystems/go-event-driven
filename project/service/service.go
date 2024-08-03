@@ -2,86 +2,101 @@ package service
 
 import (
 	"context"
+	"fmt"
+	stdHTTP "net/http"
+	"tickets/db"
+	ticketsHttp "tickets/http"
+	"tickets/message"
+	"tickets/message/event"
+
 	"github.com/ThreeDotsLabs/go-event-driven/common/log"
-	"github.com/ThreeDotsLabs/watermill-redisstream/pkg/redisstream"
-	"github.com/ThreeDotsLabs/watermill/components/cqrs"
+	watermillMessage "github.com/ThreeDotsLabs/watermill/message"
+	"github.com/jmoiron/sqlx"
+	"github.com/labstack/echo/v4"
+	_ "github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
-	"tickets/common"
-	HttpRouter "tickets/presenters/http"
-	HttpTicketHandler "tickets/presenters/http/handlers/ticket"
-	PubSubRouter "tickets/presenters/pubsub"
-	"tickets/presenters/pubsub/handlers"
 )
 
+func init() {
+	log.Init(logrus.InfoLevel)
+}
+
 type Service struct {
-	httpRouter   *HttpRouter.Router
-	pubsubRouter *PubSubRouter.Router
+	db              *sqlx.DB
+	watermillRouter *watermillMessage.Router
+	echoRouter      *echo.Echo
 }
 
-func NewService(redisClient *redis.Client, spreadsheetsClient SpreadsheetsClient, receiptsClient ReceiptsClient) *Service {
-	logrusLogger := logrus.New()
-	logrusEntry := logrusLogger.WithContext(context.Background())
-	watermillLogger := log.NewWatermill(logrusEntry)
+func New(
+	dbConn *sqlx.DB,
+	redisClient *redis.Client,
+	spreadsheetsService event.SpreadsheetsAPI,
+	receiptsService event.ReceiptsService,
+) Service {
+	watermillLogger := log.NewWatermill(log.FromContext(context.Background()))
 
-	ticketPub, err := redisstream.NewPublisher(redisstream.PublisherConfig{
-		Client: redisClient,
-	}, watermillLogger)
-	if err != nil {
-		panic(err)
-	}
+	var redisPublisher watermillMessage.Publisher
+	redisPublisher = message.NewRedisPublisher(redisClient, watermillLogger)
+	redisPublisher = log.CorrelationPublisherDecorator{Publisher: redisPublisher}
 
-	publisher := common.CorrelationPublisherDecorator{Publisher: ticketPub}
+	eventBus := event.NewBus(redisPublisher)
 
-	eventBus, err := cqrs.NewEventBusWithConfig(publisher, cqrs.EventBusConfig{
-		GeneratePublishTopic: func(params cqrs.GenerateEventPublishTopicParams) (string, error) {
-			return params.EventName, nil
-		},
-		Marshaler: cqrs.JSONMarshaler{
-			GenerateName: cqrs.StructName,
-		},
-		Logger: watermillLogger,
-	})
-	if err != nil {
-		panic(err)
-	}
+	eventsHandler := event.NewHandler(
+		spreadsheetsService,
+		receiptsService,
+	)
+	eventProcessorConfig := event.NewProcessorConfig(redisClient, watermillLogger)
 
-	httpTicketHandler := HttpTicketHandler.NewHttpTicketHandler(eventBus)
+	watermillRouter := message.NewWatermillRouter(
+		eventProcessorConfig,
+		eventsHandler,
+		watermillLogger,
+	)
 
-	httpRouter := HttpRouter.NewRouter(logrusLogger, httpTicketHandler)
+	echoRouter := ticketsHttp.NewHttpRouter(
+		eventBus,
+		spreadsheetsService,
+	)
 
-	receiptConfirmedHandler := handlers.NewReceiptConfirmedHandler(receiptsClient)
-	spreadsheetConfirmedHandler := handlers.NewSpreadsheetConfirmedHandler(spreadsheetsClient)
-	spreadsheetCanceledHandler := handlers.NewSpreadsheetCanceledHandler(spreadsheetsClient)
-
-	pubsubRouter := PubSubRouter.NewPubSubRouter(watermillLogger, redisClient)
-
-	if err := pubsubRouter.RegisterEventHandlers(receiptConfirmedHandler, spreadsheetConfirmedHandler, spreadsheetCanceledHandler); err != nil {
-		panic(err)
-	}
-
-	return &Service{
-		httpRouter,
-		pubsubRouter,
+	return Service{
+		dbConn,
+		watermillRouter,
+		echoRouter,
 	}
 }
 
-func (s Service) Run(ctx context.Context) error {
-	g, ctx := errgroup.WithContext(ctx)
-	g.Go(func() error {
-		return s.pubsubRouter.Run(ctx)
+func (s Service) Run(
+	ctx context.Context,
+) error {
+	if err := db.InitializeDatabaseSchema(s.db); err != nil {
+		return fmt.Errorf("failed to initialize database schema: %w", err)
+	}
+
+	errgrp, ctx := errgroup.WithContext(ctx)
+
+	errgrp.Go(func() error {
+		return s.watermillRouter.Run(ctx)
 	})
-	g.Go(func() error {
-		<-s.pubsubRouter.Running()
-		return s.httpRouter.Run()
+
+	errgrp.Go(func() error {
+		// we don't want to start HTTP server before Watermill router (so service won't be healthy before it's ready)
+		<-s.watermillRouter.Running()
+
+		err := s.echoRouter.Start(":8080")
+
+		if err != nil && err != stdHTTP.ErrServerClosed {
+			return err
+		}
+
+		return nil
 	})
-	g.Go(func() error {
+
+	errgrp.Go(func() error {
 		<-ctx.Done()
-		return s.httpRouter.Shutdown(ctx)
+		return s.echoRouter.Shutdown(context.Background())
 	})
-	if err := g.Wait(); err != nil {
-		panic(err)
-	}
-	return nil
+
+	return errgrp.Wait()
 }

@@ -4,30 +4,21 @@ import (
 	"context"
 	"github.com/ThreeDotsLabs/go-event-driven/common/clients"
 	"github.com/ThreeDotsLabs/go-event-driven/common/log"
-	"github.com/redis/go-redis/v9"
-	"github.com/sirupsen/logrus"
+	"github.com/jmoiron/sqlx"
 	"net/http"
 	"os"
 	"os/signal"
-	"tickets/config"
-	"tickets/infra/adapters"
+	"tickets/api"
+	"tickets/message"
 	"tickets/service"
 )
 
-func init() {
-	log.Init(logrus.InfoLevel)
-}
-
 func main() {
-	cfg := config.NewConfig()
-
-	rdb := redis.NewClient(&redis.Options{
-		Addr: cfg.RedisAddress,
-	})
-	defer rdb.Close()
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
 
 	apiClients, err := clients.NewClients(
-		cfg.GatewayAddress,
+		os.Getenv("GATEWAY_ADDR"),
 		func(ctx context.Context, req *http.Request) error {
 			req.Header.Set("Correlation-ID", log.CorrelationIDFromContext(ctx))
 			return nil
@@ -37,13 +28,25 @@ func main() {
 		panic(err)
 	}
 
-	spreadsheetsClient := adapters.NewSpreadsheetsClient(apiClients)
-	receiptsClient := adapters.NewReceiptsClient(apiClients)
+	db, err := sqlx.Open("postgres", os.Getenv("POSTGRES_URL"))
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
 
-	svc := service.NewService(rdb, spreadsheetsClient, receiptsClient)
+	redisClient := message.NewRedisClient(os.Getenv("REDIS_ADDR"))
+	defer redisClient.Close()
 
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Kill, os.Interrupt)
-	defer cancel()
+	spreadsheetsService := api.NewSpreadsheetsAPIClient(apiClients)
+	receiptsService := api.NewReceiptsServiceClient(apiClients)
 
-	svc.Run(ctx)
+	err = service.New(
+		db,
+		redisClient,
+		spreadsheetsService,
+		receiptsService,
+	).Run(ctx)
+	if err != nil {
+		panic(err)
+	}
 }

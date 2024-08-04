@@ -2,7 +2,6 @@ package http
 
 import (
 	"context"
-
 	"github.com/ThreeDotsLabs/watermill/components/cqrs"
 )
 

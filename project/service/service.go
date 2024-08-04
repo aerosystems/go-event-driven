@@ -43,9 +43,12 @@ func New(
 
 	eventBus := event.NewBus(redisPublisher)
 
+	ticketsRepo := db.NewTicketRepository(dbConn)
+
 	eventsHandler := event.NewHandler(
 		spreadsheetsService,
 		receiptsService,
+		ticketsRepo,
 	)
 	eventProcessorConfig := event.NewProcessorConfig(redisClient, watermillLogger)
 

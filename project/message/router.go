@@ -34,6 +34,10 @@ func NewWatermillRouter(eventProcessorConfig cqrs.EventProcessorConfig, eventHan
 			"IssueReceipt",
 			eventHandler.IssueReceipt,
 		),
+		cqrs.NewEventHandler(
+			"Add",
+			eventHandler.StoreTicket,
+		),
 	)
 
 	return router

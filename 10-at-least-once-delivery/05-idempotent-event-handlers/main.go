@@ -22,7 +22,7 @@ func (p *PaymentsHandler) HandlePaymentTaken(ctx context.Context, event *Payment
 type PaymentsRepository struct {
 	payments []PaymentTaken
 
-	paymentsID map[string]struct{}
+	paymentsIDs map[string]struct{}
 }
 
 func (p *PaymentsRepository) Payments() []PaymentTaken {
@@ -31,14 +31,17 @@ func (p *PaymentsRepository) Payments() []PaymentTaken {
 
 func NewPaymentsRepository() *PaymentsRepository {
 	return &PaymentsRepository{
-		paymentsID: make(map[string]struct{}),
+		paymentsIDs: make(map[string]struct{}),
 	}
 }
 
-func (p *PaymentsRepository) SavePaymentTaken(_ context.Context, event *PaymentTaken) error {
-	if _, ok := p.paymentsID[event.PaymentID]; ok {
+func (p *PaymentsRepository) SavePaymentTaken(ctx context.Context, event *PaymentTaken) error {
+	if _, ok := p.paymentsIDs[event.PaymentID]; ok {
 		return nil
 	}
+
+	p.paymentsIDs[event.PaymentID] = struct{}{}
 	p.payments = append(p.payments, *event)
+
 	return nil
 }

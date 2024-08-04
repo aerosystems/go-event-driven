@@ -46,6 +46,7 @@ func (r TicketRepository) Add(ctx context.Context, t entities.Ticket) error {
 	_, err = r.db.NamedExecContext(ctx, `
 		INSERT INTO tickets (ticket_id, price_amount, price_currency, customer_email)
 		VALUES (:ticket_id, :price_amount, :price_currency, :customer_email)
+		ON CONFLICT (ticket_id) DO NOTHING
 	`, ticket)
 	return err
 }

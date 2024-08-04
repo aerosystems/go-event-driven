@@ -1,62 +1,42 @@
 package http
 
 import (
-	"fmt"
+	"context"
+	"github.com/labstack/echo/v4"
 	"net/http"
 	"tickets/entities"
-
-	"github.com/labstack/echo/v4"
 )
 
-type ticketsStatusRequest struct {
-	Tickets []ticketStatusRequest `json:"tickets"`
+type Ticket struct {
+	ID            string      `json:"ticket_id"`
+	CustomerEmail string      `json:"customer_email"`
+	TicketPrice   TicketPrice `json:"price"`
 }
 
-type ticketStatusRequest struct {
-	TicketID      string         `json:"ticket_id"`
-	Status        string         `json:"status"`
-	Price         entities.Money `json:"price"`
-	CustomerEmail string         `json:"customer_email"`
-	BookingID     string         `json:"booking_id"`
+type TicketPrice struct {
+	Amount   string `json:"amount"`
+	Currency string `json:"currency"`
 }
 
-func (h Handler) PostTicketsStatus(c echo.Context) error {
-	var request ticketsStatusRequest
-	err := c.Bind(&request)
+func entitiesToTickets(tickets []entities.Ticket) []Ticket {
+	result := make([]Ticket, 0, len(tickets))
+	for _, ticket := range tickets {
+		result = append(result, Ticket{
+			ID:            ticket.TicketID,
+			CustomerEmail: ticket.CustomerEmail,
+			TicketPrice: TicketPrice{
+				Amount:   ticket.Price.Amount,
+				Currency: ticket.Price.Currency,
+			},
+		})
+	}
+	return result
+}
+func (h Handler) GetAllTickets(c echo.Context) error {
+	ctx := context.Background()
+	tickets, err := h.ticketRepo.GetAll(ctx)
 	if err != nil {
 		return err
 	}
-
-	for _, ticket := range request.Tickets {
-		if ticket.Status == "confirmed" {
-			event := entities.TicketBookingConfirmed{
-				Header: entities.NewEventHeader(),
-
-				TicketID:      ticket.TicketID,
-				Price:         ticket.Price,
-				CustomerEmail: ticket.CustomerEmail,
-
-				BookingID: ticket.BookingID,
-			}
-
-			if err := h.eventBus.Publish(c.Request().Context(), event); err != nil {
-				return fmt.Errorf("failed to publish TicketBookingConfirmed event: %w", err)
-			}
-		} else if ticket.Status == "canceled" {
-			event := entities.TicketBookingCanceled{
-				Header:        entities.NewEventHeader(),
-				TicketID:      ticket.TicketID,
-				CustomerEmail: ticket.CustomerEmail,
-				Price:         ticket.Price,
-			}
-
-			if err := h.eventBus.Publish(c.Request().Context(), event); err != nil {
-				return fmt.Errorf("failed to publish TicketBookingCanceled event: %w", err)
-			}
-		} else {
-			return fmt.Errorf("unknown ticket status: %s", ticket.Status)
-		}
-	}
-
-	return c.NoContent(http.StatusOK)
+	return c.JSON(http.StatusOK, entitiesToTickets(tickets))
 }

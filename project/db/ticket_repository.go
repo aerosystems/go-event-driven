@@ -56,3 +56,24 @@ func (r TicketRepository) Remove(ctx context.Context, ticketID string) error {
 	`, ticketID)
 	return err
 }
+
+func (r TicketRepository) GetAll(ctx context.Context) ([]entities.Ticket, error) {
+	var tickets []Ticket
+	err := r.db.SelectContext(ctx, &tickets, "SELECT * FROM tickets")
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]entities.Ticket, 0, len(tickets))
+	for _, ticket := range tickets {
+		result = append(result, entities.Ticket{
+			TicketID: ticket.ID,
+			Price: entities.Money{
+				Amount:   strconv.FormatFloat(ticket.PriceAmount, 'f', 2, 64),
+				Currency: ticket.PriceCurrency,
+			},
+			CustomerEmail: ticket.CustomerEmail,
+		})
+	}
+	return result, nil
+}

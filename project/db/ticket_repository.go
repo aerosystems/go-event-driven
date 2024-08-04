@@ -7,15 +7,15 @@ import (
 	"tickets/entities"
 )
 
-type TicketRepo struct {
+type TicketRepository struct {
 	db *sqlx.DB
 }
 
-func NewTicketRepository(db *sqlx.DB) TicketRepo {
+func NewTicketRepository(db *sqlx.DB) TicketRepository {
 	if db == nil {
 		panic("missing db")
 	}
-	return TicketRepo{db: db}
+	return TicketRepository{db: db}
 }
 
 type Ticket struct {
@@ -38,7 +38,7 @@ func entityToTicket(ticket entities.Ticket) (Ticket, error) {
 	}, nil
 }
 
-func (r TicketRepo) Add(ctx context.Context, t entities.Ticket) error {
+func (r TicketRepository) Add(ctx context.Context, t entities.Ticket) error {
 	ticket, err := entityToTicket(t)
 	if err != nil {
 		return err
@@ -47,5 +47,12 @@ func (r TicketRepo) Add(ctx context.Context, t entities.Ticket) error {
 		INSERT INTO tickets (ticket_id, price_amount, price_currency, customer_email)
 		VALUES (:ticket_id, :price_amount, :price_currency, :customer_email)
 	`, ticket)
+	return err
+}
+
+func (r TicketRepository) Remove(ctx context.Context, ticketID string) error {
+	_, err := r.db.ExecContext(ctx, `
+		DELETE FROM tickets WHERE ticket_id = $1
+	`, ticketID)
 	return err
 }

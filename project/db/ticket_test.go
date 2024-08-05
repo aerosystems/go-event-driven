@@ -7,15 +7,24 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/require"
 	"os"
+	"sync"
 	"testing"
 	"tickets/entities"
 )
 
+var (
+	db     *sqlx.DB
+	single sync.Once
+)
+
 func setupDB() *sqlx.DB {
-	db, err := sqlx.Open("postgres", os.Getenv("POSTGRES_URL"))
-	if err != nil {
-		panic(err)
-	}
+	single.Do(func() {
+		var err error
+		db, err = sqlx.Open("postgres", os.Getenv("POSTGRES_URL"))
+		if err != nil {
+			panic(err)
+		}
+	})
 	return db
 }
 

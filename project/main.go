@@ -39,12 +39,14 @@ func main() {
 
 	spreadsheetsService := api.NewSpreadsheetsAPIClient(apiClients)
 	receiptsService := api.NewReceiptsServiceClient(apiClients)
+	filesService := api.NewFilesServiceClient(apiClients)
 
 	err = service.New(
 		db,
 		redisClient,
 		spreadsheetsService,
 		receiptsService,
+		filesService,
 	).Run(ctx)
 	if err != nil {
 		panic(err)

@@ -47,6 +47,7 @@ func New(
 	ticketsRepo := db.NewTicketRepository(dbConn)
 
 	eventsHandler := event.NewHandler(
+		eventBus,
 		spreadsheetsService,
 		receiptsService,
 		filesService,

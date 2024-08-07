@@ -36,6 +36,13 @@ type TicketBookingCanceled struct {
 	Price         Money  `json:"price"`
 }
 
+type TicketPrinted struct {
+	Header EventHeader `json:"header"`
+
+	TicketID string `json:"ticket_id"`
+	FileName string `json:"file_name"`
+}
+
 type TicketRefunded struct {
 	Header EventHeader `json:"header"`
 

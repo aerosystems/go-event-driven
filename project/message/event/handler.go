@@ -2,10 +2,12 @@ package event
 
 import (
 	"context"
+	"github.com/ThreeDotsLabs/watermill/components/cqrs"
 	"tickets/entities"
 )
 
 type Handler struct {
+	eventBus            *cqrs.EventBus
 	spreadsheetsService SpreadsheetsAPI
 	receiptsService     ReceiptsService
 	filesService        FilesService
@@ -13,6 +15,7 @@ type Handler struct {
 }
 
 func NewHandler(
+	eventBus *cqrs.EventBus,
 	spreadsheetsService SpreadsheetsAPI,
 	receiptsService ReceiptsService,
 	filesService FilesService,

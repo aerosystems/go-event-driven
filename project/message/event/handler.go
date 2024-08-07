@@ -21,6 +21,9 @@ func NewHandler(
 	filesService FilesService,
 	ticketRepo TicketRepository,
 ) Handler {
+	if eventBus == nil {
+		panic("missing eventBus")
+	}
 	if spreadsheetsService == nil {
 		panic("missing spreadsheetsService")
 	}
@@ -35,6 +38,7 @@ func NewHandler(
 	}
 
 	return Handler{
+		eventBus:            eventBus,
 		spreadsheetsService: spreadsheetsService,
 		receiptsService:     receiptsService,
 		ticketRepo:          ticketRepo,
@@ -51,7 +55,7 @@ type ReceiptsService interface {
 }
 
 type FilesService interface {
-	PrintTicket(ctx context.Context, ticket entities.Ticket) error
+	PrintTicket(ctx context.Context, ticket entities.Ticket) (string, error)
 }
 
 type TicketRepository interface {

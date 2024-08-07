@@ -1,6 +1,6 @@
 module 04-router/01-handlers
 
-go 1.21
+go 1.22
 
 require (
 	github.com/ThreeDotsLabs/watermill v1.3.2

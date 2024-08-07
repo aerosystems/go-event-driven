@@ -22,16 +22,16 @@ func NewFilesServiceClient(clients *clients.Clients) *FilesServiceClient {
 	}
 }
 
-func (f FilesServiceClient) PrintTicket(ctx context.Context, ticket entities.Ticket) error {
+func (f FilesServiceClient) PrintTicket(ctx context.Context, ticket entities.Ticket) (string, error) {
 	fileID := fmt.Sprintf("%s-ticket.html", ticket.TicketID)
 	fileBody := fmt.Sprintf("Ticket ID: %s. Price: %s %s", ticket.TicketID, ticket.Price.Amount, ticket.Price.Currency)
 	response, err := f.clients.Files.PutFilesFileIdContentWithTextBodyWithResponse(ctx, fileID, fileBody)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if response.StatusCode() == http.StatusConflict {
 		log.FromContext(ctx).Infof("file %s already exists", fileID)
-		return nil
+		return "", nil
 	}
-	return nil
+	return fileID, nil
 }

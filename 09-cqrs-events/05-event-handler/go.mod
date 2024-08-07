@@ -1,6 +1,6 @@
 module 09-cqrs-events/05-event-handler
 
-go 1.21
+go 1.22
 
 require (
 	github.com/ThreeDotsLabs/watermill v1.3.2

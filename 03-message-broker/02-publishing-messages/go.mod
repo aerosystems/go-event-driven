@@ -1,6 +1,6 @@
 module 03-message-broker/02-publishing-messages
 
-go 1.21
+go 1.22
 
 require (
 	github.com/ThreeDotsLabs/watermill v1.3.5

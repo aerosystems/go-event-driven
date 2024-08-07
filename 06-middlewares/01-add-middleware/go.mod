@@ -1,6 +1,6 @@
 module 06-middlewares/01-add-middleware
 
-go 1.21
+go 1.22
 
 require (
 	github.com/ThreeDotsLabs/go-event-driven v0.0.10

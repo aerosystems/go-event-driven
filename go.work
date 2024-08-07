@@ -1,6 +1,7 @@
 go 1.22.0
 
 use (
+	./project
 	./02-async/01-goroutines
 	./03-message-broker/02-publishing-messages
 	./03-message-broker/03-subscribing
@@ -18,6 +19,6 @@ use (
 	./09-cqrs-events/04-event-processor
 	./09-cqrs-events/05-event-handler
 	./09-cqrs-events/06-cqrs-with-consumer-groups
-	./project
-	10-at-least-once-delivery/05-idempotent-event-handlers
+	./10-at-least-once-delivery/05-idempotent-event-handlers
+	./10-at-least-once-delivery/10-idempotency-key-in-api
 )

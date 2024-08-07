@@ -10,13 +10,7 @@ import (
 func (h Handler) PrintTicket(ctx context.Context, event *entities.TicketBookingConfirmed) error {
 	log.FromContext(ctx).Info("Printing ticket")
 
-	h.eventBus.Publish(ctx, entities.TicketPrinted{
-		Header:   event.Header,
-		TicketID: event.TicketID,
-		FileName: fmt.Sprintf("%s-ticket.html", event.TicketID),
-	})
-
-	return h.filesService.PrintTicket(
+	fileID, err := h.filesService.PrintTicket(
 		ctx,
 		entities.Ticket{
 			TicketID: event.TicketID,
@@ -26,4 +20,16 @@ func (h Handler) PrintTicket(ctx context.Context, event *entities.TicketBookingC
 			},
 			CustomerEmail: event.CustomerEmail,
 		})
+	if err != nil {
+		return fmt.Errorf("failed to print ticket: %w", err)
+	}
+	if fileID == "" {
+		return nil
+	}
+
+	return h.eventBus.Publish(ctx, entities.TicketPrinted{
+		Header:   entities.NewEventHeader(),
+		TicketID: event.TicketID,
+		FileName: fileID,
+	})
 }

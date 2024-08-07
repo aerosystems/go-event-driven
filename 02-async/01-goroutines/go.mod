@@ -1,6 +1,6 @@
 module 02-async/01-goroutines
 
-go 1.21
+go 1.22
 
 require (
 	github.com/google/uuid v1.3.0

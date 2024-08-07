@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	stdHTTP "net/http"
 	"tickets/db"
@@ -81,29 +82,29 @@ func (s Service) Run(
 		return fmt.Errorf("failed to initialize database schema: %w", err)
 	}
 
-	errgrp, ctx := errgroup.WithContext(ctx)
+	g, ctx := errgroup.WithContext(ctx)
 
-	errgrp.Go(func() error {
+	g.Go(func() error {
 		return s.watermillRouter.Run(ctx)
 	})
 
-	errgrp.Go(func() error {
+	g.Go(func() error {
 		// we don't want to start HTTP server before Watermill router (so service won't be healthy before it's ready)
 		<-s.watermillRouter.Running()
 
 		err := s.echoRouter.Start(":8080")
 
-		if err != nil && err != stdHTTP.ErrServerClosed {
+		if err != nil && !errors.Is(err, stdHTTP.ErrServerClosed) {
 			return err
 		}
 
 		return nil
 	})
 
-	errgrp.Go(func() error {
+	g.Go(func() error {
 		<-ctx.Done()
 		return s.echoRouter.Shutdown(context.Background())
 	})
 
-	return errgrp.Wait()
+	return g.Wait()
 }

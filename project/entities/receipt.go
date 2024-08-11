@@ -9,7 +9,7 @@ type VoidReceipt struct {
 }
 
 type IssueReceiptRequest struct {
-	IdempotencyKey string `idempotencyKey`
+	IdempotencyKey string `json:"idempotencyKey""`
 	TicketID       string `json:"ticket_id"`
 	Price          Money  `json:"price"`
 }

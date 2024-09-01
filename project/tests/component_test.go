@@ -35,6 +35,7 @@ func TestComponent(t *testing.T) {
 
 	spreadsheetsService := &api.SpreadsheetsMock{}
 	receiptsService := &api.ReceiptsMock{}
+	filesService := &api.FilesMock{}
 
 	go func() {
 		svc := service.New(
@@ -42,6 +43,7 @@ func TestComponent(t *testing.T) {
 			redisClient,
 			spreadsheetsService,
 			receiptsService,
+			filesService,
 		)
 		assert.NoError(t, svc.Run(ctx))
 	}()

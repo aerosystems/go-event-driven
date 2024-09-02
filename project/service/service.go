@@ -46,6 +46,7 @@ func New(
 	eventBus := event.NewBus(redisPublisher)
 	ticketsRepo := db.NewTicketRepository(dbConn)
 	showsRepo := db.NewShowRepository(dbConn)
+	bookingRepo := db.NewBookingRepository(dbConn)
 
 	eventsHandler := event.NewHandler(
 		eventBus,
@@ -67,6 +68,7 @@ func New(
 		spreadsheetsService,
 		ticketsRepo,
 		showsRepo,
+		bookingRepo,
 	)
 
 	return Service{

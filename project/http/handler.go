@@ -11,6 +11,7 @@ type Handler struct {
 	spreadsheetsAPIClient SpreadsheetsAPI
 	ticketRepo            TicketRepository
 	showRepo              ShowRepository
+	bookingRepo           BookingRepository
 }
 
 type SpreadsheetsAPI interface {
@@ -23,4 +24,8 @@ type TicketRepository interface {
 
 type ShowRepository interface {
 	Create(ctx context.Context, show entities.Show) (string, error)
+}
+
+type BookingRepository interface {
+	Create(ctx context.Context, booking entities.Booking) (string, error)
 }

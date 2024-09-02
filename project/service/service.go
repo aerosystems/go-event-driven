@@ -44,8 +44,8 @@ func New(
 	redisPublisher = log.CorrelationPublisherDecorator{Publisher: redisPublisher}
 
 	eventBus := event.NewBus(redisPublisher)
-
 	ticketsRepo := db.NewTicketRepository(dbConn)
+	showsRepo := db.NewShowRepository(dbConn)
 
 	eventsHandler := event.NewHandler(
 		eventBus,
@@ -66,6 +66,7 @@ func New(
 		eventBus,
 		spreadsheetsService,
 		ticketsRepo,
+		showsRepo,
 	)
 
 	return Service{

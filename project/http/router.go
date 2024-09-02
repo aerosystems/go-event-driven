@@ -12,6 +12,7 @@ func NewHttpRouter(
 	eventBus *cqrs.EventBus,
 	spreadsheetsAPIClient SpreadsheetsAPI,
 	ticketRepo TicketRepository,
+	showRepo ShowRepository,
 ) *echo.Echo {
 	e := libHttp.NewEcho()
 
@@ -23,10 +24,12 @@ func NewHttpRouter(
 		eventBus:              eventBus,
 		spreadsheetsAPIClient: spreadsheetsAPIClient,
 		ticketRepo:            ticketRepo,
+		showRepo:              showRepo,
 	}
 
 	e.POST("/tickets-status", handler.PostTicketsStatus)
 	e.GET("/tickets", handler.GetAllTickets)
+	e.POST("/shows", handler.PostShow)
 
 	return e
 }

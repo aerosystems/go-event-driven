@@ -2,6 +2,8 @@ package main
 
 import (
 	"database/sql"
+	watermillSQL "github.com/ThreeDotsLabs/watermill-sql/v2/pkg/sql"
+	"github.com/ThreeDotsLabs/watermill/components/forwarder"
 
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
@@ -15,6 +17,14 @@ func PublishInTx(
 	tx *sql.Tx,
 	logger watermill.LoggerAdapter,
 ) error {
-	// your code goes here
-	return nil
+	publisher, err := watermillSQL.NewPublisher(tx, watermillSQL.PublisherConfig{
+		SchemaAdapter: watermillSQL.DefaultPostgreSQLSchema{},
+	}, logger)
+	if err != nil {
+		return err
+	}
+
+	outboxPublisher := forwarder.NewPublisher(publisher, forwarder.PublisherConfig{ForwarderTopic: outboxTopic})
+
+	return outboxPublisher.Publish("ItemAddedToCart", msg)
 }

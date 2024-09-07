@@ -9,6 +9,7 @@ import (
 	ticketsHttp "tickets/http"
 	"tickets/message"
 	"tickets/message/event"
+	"tickets/message/forwarder"
 
 	"github.com/ThreeDotsLabs/go-event-driven/common/log"
 	watermillMessage "github.com/ThreeDotsLabs/watermill/message"
@@ -20,12 +21,15 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+const forwarderTopic = "events_to_forward"
+
 func init() {
 	log.Init(logrus.InfoLevel)
 }
 
 type Service struct {
 	db              *sqlx.DB
+	redisClient     *redis.Client
 	watermillRouter *watermillMessage.Router
 	echoRouter      *echo.Echo
 }
@@ -73,6 +77,7 @@ func New(
 
 	return Service{
 		dbConn,
+		redisClient,
 		watermillRouter,
 		echoRouter,
 	}
@@ -101,6 +106,19 @@ func (s Service) Run(
 			return err
 		}
 
+		return nil
+	})
+
+	g.Go(func() error {
+		err := forwarder.RunForwarder(
+			s.db,
+			redis.NewClient(s.redisClient.Options()),
+			forwarderTopic,
+			log.NewWatermill(log.FromContext(context.Background())),
+		)
+		if err != nil {
+			return err
+		}
 		return nil
 	})
 

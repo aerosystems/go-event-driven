@@ -4,13 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	stdHTTP "net/http"
-	"tickets/db"
-	ticketsHttp "tickets/http"
-	"tickets/message"
-	"tickets/message/event"
-	"tickets/message/forwarder"
-
 	"github.com/ThreeDotsLabs/go-event-driven/common/log"
 	watermillMessage "github.com/ThreeDotsLabs/watermill/message"
 	"github.com/jmoiron/sqlx"
@@ -19,9 +12,15 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
+	stdHTTP "net/http"
+	"tickets/db"
+	ticketsHttp "tickets/http"
+	"tickets/message"
+	"tickets/message/event"
+	"tickets/message/outbox"
 )
 
-const forwarderTopic = "events_to_forward"
+const ForwarderTopic = "events_to_forward"
 
 func init() {
 	log.Init(logrus.InfoLevel)
@@ -40,6 +39,7 @@ func New(
 	spreadsheetsService event.SpreadsheetsAPI,
 	receiptsService event.ReceiptsService,
 	filesService event.FilesService,
+	deadNationService event.DeadNationService,
 ) Service {
 	watermillLogger := log.NewWatermill(log.FromContext(context.Background()))
 
@@ -58,15 +58,20 @@ func New(
 		receiptsService,
 		filesService,
 		ticketsRepo,
+		showsRepo,
+		deadNationService,
 	)
+
+	postgresSubscriber := outbox.NewPostgresSubscriber(dbConn.DB, watermillLogger)
 	eventProcessorConfig := event.NewProcessorConfig(redisClient, watermillLogger)
 
 	watermillRouter := message.NewWatermillRouter(
+		postgresSubscriber,
+		redisPublisher,
 		eventProcessorConfig,
 		eventsHandler,
 		watermillLogger,
 	)
-
 	echoRouter := ticketsHttp.NewHttpRouter(
 		eventBus,
 		spreadsheetsService,
@@ -106,19 +111,6 @@ func (s Service) Run(
 			return err
 		}
 
-		return nil
-	})
-
-	g.Go(func() error {
-		err := forwarder.RunForwarder(
-			s.db,
-			redis.NewClient(s.redisClient.Options()),
-			forwarderTopic,
-			log.NewWatermill(log.FromContext(context.Background())),
-		)
-		if err != nil {
-			return err
-		}
 		return nil
 	})
 

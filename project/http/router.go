@@ -32,7 +32,7 @@ func NewHttpRouter(
 	e.POST("/tickets-status", handler.PostTicketsStatus)
 	e.GET("/tickets", handler.GetAllTickets)
 	e.POST("/shows", handler.PostShow)
-	e.POST("/book-tickets", handler.PostBookTicket)
+	e.POST("/book-tickets", handler.PostBookTickets)
 
 	return e
 }

@@ -12,6 +12,8 @@ type Handler struct {
 	receiptsService     ReceiptsService
 	filesService        FilesService
 	ticketRepo          TicketRepository
+	showRepo            ShowRepository
+	deadNationService   DeadNationService
 }
 
 func NewHandler(
@@ -20,6 +22,8 @@ func NewHandler(
 	receiptsService ReceiptsService,
 	filesService FilesService,
 	ticketRepo TicketRepository,
+	showRepo ShowRepository,
+	deadNationService DeadNationService,
 ) Handler {
 	if eventBus == nil {
 		panic("missing eventBus")
@@ -36,13 +40,21 @@ func NewHandler(
 	if ticketRepo == nil {
 		panic("missing ticketRepo")
 	}
+	if showRepo == nil {
+		panic("missing showRepo")
+	}
+	if deadNationService == nil {
+		panic("missing deadNationService")
+	}
 
 	return Handler{
 		eventBus:            eventBus,
 		spreadsheetsService: spreadsheetsService,
 		receiptsService:     receiptsService,
 		ticketRepo:          ticketRepo,
+		showRepo:            showRepo,
 		filesService:        filesService,
+		deadNationService:   deadNationService,
 	}
 }
 
@@ -61,4 +73,12 @@ type FilesService interface {
 type TicketRepository interface {
 	Add(ctx context.Context, t entities.Ticket) error
 	Remove(ctx context.Context, ticketID string) error
+}
+
+type DeadNationService interface {
+	Notify(ctx context.Context, booking entities.DeadNationBooking) error
+}
+
+type ShowRepository interface {
+	Get(ctx context.Context, showID string) (entities.Show, error)
 }

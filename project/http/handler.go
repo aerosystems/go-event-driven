@@ -27,5 +27,5 @@ type ShowRepository interface {
 }
 
 type BookingRepository interface {
-	Create(ctx context.Context, booking entities.Booking) (string, error)
+	AddBooking(ctx context.Context, booking entities.Booking) error
 }

@@ -2,46 +2,66 @@ package db
 
 import (
 	"context"
-	"github.com/jmoiron/sqlx"
+	"errors"
+	"fmt"
 	"tickets/entities"
+	"tickets/message/event"
+	"tickets/message/outbox"
+
+	"github.com/jmoiron/sqlx"
 )
 
-type BookingRepository struct {
+type BookingsRepository struct {
 	db *sqlx.DB
 }
 
-func NewBookingRepository(db *sqlx.DB) BookingRepository {
+func NewBookingRepository(db *sqlx.DB) BookingsRepository {
 	if db == nil {
-		panic("missing db")
+		panic("nil db")
 	}
-	return BookingRepository{db: db}
+
+	return BookingsRepository{db: db}
 }
 
-type Booking struct {
-	BookingID       string `db:"booking_id"`
-	ShowID          string `db:"show_id"`
-	NumberOfTickets int    `db:"number_of_tickets"`
-	CustomerEmail   string `db:"customer_email"`
-}
+func (b BookingsRepository) AddBooking(ctx context.Context, booking entities.Booking) (err error) {
+	tx, err := b.db.Beginx()
+	if err != nil {
+		return fmt.Errorf("could not begin transaction: %w", err)
+	}
 
-func entityToBooking(booking entities.Booking) (Booking, error) {
-	return Booking{
+	defer func() {
+		if err != nil {
+			rollbackErr := tx.Rollback()
+			err = errors.Join(err, rollbackErr)
+			return
+		}
+		err = tx.Commit()
+	}()
+
+	_, err = tx.NamedExecContext(ctx, `
+		INSERT INTO 
+		    bookings (booking_id, show_id, number_of_tickets, customer_email) 
+		VALUES (:booking_id, :show_id, :number_of_tickets, :customer_email)
+		`, booking)
+	if err != nil {
+		return fmt.Errorf("could not add booking: %w", err)
+	}
+
+	outboxPublisher, err := outbox.NewPublisherForDb(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("could not create event bus: %w", err)
+	}
+
+	err = event.NewBus(outboxPublisher).Publish(ctx, entities.BookingMade{
+		Header:          entities.NewEventHeader(),
 		BookingID:       booking.BookingID,
-		ShowID:          booking.ShowID,
 		NumberOfTickets: booking.NumberOfTickets,
 		CustomerEmail:   booking.CustomerEmail,
-	}, nil
-}
-
-func (r BookingRepository) Create(ctx context.Context, booking entities.Booking) (string, error) {
-	b, err := entityToBooking(booking)
+		ShowId:          booking.ShowID,
+	})
 	if err != nil {
-		return "", err
+		return fmt.Errorf("could not publish event: %w", err)
 	}
-	_, err = r.db.NamedExecContext(ctx, `
-		INSERT INTO bookings (booking_id, show_id, number_of_tickets, customer_email)
-		VALUES (:booking_id, :show_id, :number_of_tickets, :customer_email)
-		ON CONFLICT (booking_id) DO NOTHING
-	`, b)
-	return booking.BookingID, err
+
+	return nil
 }

@@ -50,3 +50,19 @@ func (r ShowRepository) Create(ctx context.Context, show entities.Show) (string,
 	`, s)
 	return show.ShowID, err
 }
+
+func (r ShowRepository) Get(ctx context.Context, showID string) (entities.Show, error) {
+	var s Show
+	err := r.db.GetContext(ctx, &s, "SELECT * FROM shows WHERE show_id = $1", showID)
+	if err != nil {
+		return entities.Show{}, err
+	}
+	return entities.Show{
+		ShowID:          s.ShowID,
+		DeadNationID:    s.DeadNationID,
+		NumberOfTickets: s.NumberOfTickets,
+		StartTime:       s.StartTime,
+		Title:           s.Title,
+		Venue:           s.Venue,
+	}, nil
+}

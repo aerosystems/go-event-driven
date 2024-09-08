@@ -2,8 +2,10 @@ package http
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
+	"tickets/db"
 	"tickets/entities"
 
 	"github.com/google/uuid"
@@ -43,6 +45,9 @@ func (h Handler) PostBookTickets(c echo.Context) error {
 		NumberOfTickets: req.NumberOfTickets,
 		ShowID:          req.ShowId,
 	})
+	if errors.Is(err, db.ErrNotEnoughTickets) {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
 	if err != nil {
 		return fmt.Errorf("failed to add booking: %w", err)
 	}

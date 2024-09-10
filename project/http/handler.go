@@ -7,6 +7,7 @@ import (
 )
 
 type Handler struct {
+	commandBus            *cqrs.CommandBus
 	eventBus              *cqrs.EventBus
 	spreadsheetsAPIClient SpreadsheetsAPI
 	ticketRepo            TicketRepository

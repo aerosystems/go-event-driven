@@ -1,6 +1,7 @@
 package message
 
 import (
+	"tickets/message/command"
 	"tickets/message/event"
 	"tickets/message/outbox"
 
@@ -14,6 +15,7 @@ func NewWatermillRouter(
 	publisher message.Publisher,
 	eventProcessorConfig cqrs.EventProcessorConfig,
 	eventHandler event.Handler,
+	commandHandler command.Handler,
 	watermillLogger watermill.LoggerAdapter,
 ) *message.Router {
 	router, err := message.NewRouter(message.RouterConfig{}, watermillLogger)
@@ -58,6 +60,10 @@ func NewWatermillRouter(
 		cqrs.NewEventHandler(
 			"BookingMade",
 			eventHandler.BookingMade,
+		),
+		cqrs.NewEventHandler(
+			"RefundTicket",
+			commandHandler.TicketRefund,
 		),
 	); err != nil {
 		panic(err)

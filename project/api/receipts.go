@@ -3,11 +3,10 @@ package api
 import (
 	"context"
 	"fmt"
-	"net/http"
-	"tickets/entities"
-
 	"github.com/ThreeDotsLabs/go-event-driven/common/clients"
 	"github.com/ThreeDotsLabs/go-event-driven/common/clients/receipts"
+	"net/http"
+	"tickets/entities"
 )
 
 type ReceiptsServiceClient struct {

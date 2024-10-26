@@ -40,6 +40,7 @@ func New(
 	spreadsheetsService event.SpreadsheetsAPI,
 	receiptsService event.ReceiptsService,
 	filesService event.FilesService,
+	refundsService command.RefundsService,
 	deadNationService event.DeadNationService,
 ) Service {
 	watermillLogger := log.NewWatermill(log.FromContext(context.Background()))
@@ -64,6 +65,11 @@ func New(
 		deadNationService,
 	)
 
+	commandHandler := command.NewHandler(
+		commandBus,
+		refundsService,
+	)
+
 	postgresSubscriber := outbox.NewPostgresSubscriber(dbConn.DB, watermillLogger)
 	eventProcessorConfig := event.NewProcessorConfig(redisClient, watermillLogger)
 
@@ -72,6 +78,7 @@ func New(
 		redisPublisher,
 		eventProcessorConfig,
 		eventsHandler,
+		commandHandler,
 		watermillLogger,
 	)
 	echoRouter := ticketsHttp.NewHttpRouter(

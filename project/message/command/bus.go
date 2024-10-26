@@ -10,7 +10,7 @@ func NewBus(pub message.Publisher) *cqrs.CommandBus {
 		pub,
 		cqrs.CommandBusConfig{
 			GeneratePublishTopic: func(params cqrs.CommandBusGeneratePublishTopicParams) (string, error) {
-				return params.CommandName, nil
+				return "commands." + params.CommandName, nil
 			},
 			Marshaler: marshaler,
 		},

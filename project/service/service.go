@@ -71,12 +71,15 @@ func New(
 	)
 
 	postgresSubscriber := outbox.NewPostgresSubscriber(dbConn.DB, watermillLogger)
+
 	eventProcessorConfig := event.NewProcessorConfig(redisClient, watermillLogger)
+	commandProcessorConfig := command.NewProcessorConfig(redisClient, watermillLogger)
 
 	watermillRouter := message.NewWatermillRouter(
 		postgresSubscriber,
 		redisPublisher,
 		eventProcessorConfig,
+		commandProcessorConfig,
 		eventsHandler,
 		commandHandler,
 		watermillLogger,

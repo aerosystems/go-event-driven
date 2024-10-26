@@ -14,6 +14,7 @@ func NewWatermillRouter(
 	postgresSubscriber message.Subscriber,
 	publisher message.Publisher,
 	eventProcessorConfig cqrs.EventProcessorConfig,
+	commandProcessorConfig cqrs.CommandProcessorConfig,
 	eventHandler event.Handler,
 	commandHandler command.Handler,
 	watermillLogger watermill.LoggerAdapter,
@@ -61,7 +62,17 @@ func NewWatermillRouter(
 			"BookingMade",
 			eventHandler.BookingMade,
 		),
-		cqrs.NewEventHandler(
+	); err != nil {
+		panic(err)
+	}
+
+	commandProcessor, err := cqrs.NewCommandProcessorWithConfig(router, commandProcessorConfig)
+	if err != nil {
+		panic(err)
+	}
+
+	if err := commandProcessor.AddHandlers(
+		cqrs.NewCommandHandler(
 			"RefundTicket",
 			commandHandler.TicketRefund,
 		),

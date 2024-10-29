@@ -54,6 +54,7 @@ func New(
 	ticketsRepo := db.NewTicketRepository(dbConn)
 	showsRepo := db.NewShowRepository(dbConn)
 	bookingRepo := db.NewBookingRepository(dbConn)
+	opsBookingRepo := db.NewOpsBookingReadModel(dbConn)
 
 	eventsHandler := event.NewHandler(
 		eventBus,
@@ -79,9 +80,10 @@ func New(
 		postgresSubscriber,
 		redisPublisher,
 		eventProcessorConfig,
-		commandProcessorConfig,
 		eventsHandler,
+		commandProcessorConfig,
 		commandHandler,
+		opsBookingRepo,
 		watermillLogger,
 	)
 	echoRouter := ticketsHttp.NewHttpRouter(

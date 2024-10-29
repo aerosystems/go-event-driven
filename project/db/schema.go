@@ -41,5 +41,13 @@ func InitializeDatabaseSchema(db *sqlx.DB) error {
 		return fmt.Errorf("could not initialize database schema: %w", err)
 	}
 
+	if _, err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS read_model_ops_bookings (
+			booking_id UUID PRIMARY KEY,
+			payload JSONB NOT NULL
+		);
+	`); err != nil {
+		return fmt.Errorf("could not initialize database schema: %w", err)
+	}
 	return nil
 }

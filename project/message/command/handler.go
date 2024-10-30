@@ -7,25 +7,33 @@ import (
 )
 
 type Handler struct {
-	commandBus     *cqrs.CommandBus
-	refundsService RefundsService
+	commandBus      *cqrs.CommandBus
+	paymentsService PaymentsService
+	receiptService  ReceiptService
 }
 
-func NewHandler(commandBus *cqrs.CommandBus, receiptsService RefundsService) Handler {
+func NewHandler(commandBus *cqrs.CommandBus, paymentsService PaymentsService, receiptService ReceiptService) Handler {
 	if commandBus == nil {
 		panic("missing commandBus")
 	}
-	if receiptsService == nil {
-		panic("missing refundsService")
+	if paymentsService == nil {
+		panic("missing paymentsService")
+	}
+	if receiptService == nil {
+		panic("missing receiptService")
 	}
 
 	return Handler{
-		commandBus:     commandBus,
-		refundsService: receiptsService,
+		commandBus:      commandBus,
+		paymentsService: paymentsService,
+		receiptService:  receiptService,
 	}
 }
 
-type RefundsService interface {
-	RefundReceipt(ctx context.Context, request entities.VoidReceipt) error
+type PaymentsService interface {
+	RefundPayment(ctx context.Context, refundPayment entities.PaymentRefund) error
+}
+
+type ReceiptService interface {
 	VoidReceipt(ctx context.Context, request entities.VoidReceipt) error
 }

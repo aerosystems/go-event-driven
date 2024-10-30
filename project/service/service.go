@@ -40,7 +40,7 @@ func New(
 	spreadsheetsService event.SpreadsheetsAPI,
 	receiptsService event.ReceiptsService,
 	filesService event.FilesService,
-	refundsService command.RefundsService,
+	paymentsService command.PaymentsService,
 	deadNationService event.DeadNationService,
 ) Service {
 	watermillLogger := log.NewWatermill(log.FromContext(context.Background()))
@@ -68,7 +68,7 @@ func New(
 
 	commandHandler := command.NewHandler(
 		commandBus,
-		refundsService,
+		paymentsService,
 	)
 
 	postgresSubscriber := outbox.NewPostgresSubscriber(dbConn.DB, watermillLogger)

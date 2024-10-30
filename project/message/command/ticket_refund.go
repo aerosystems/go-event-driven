@@ -2,25 +2,40 @@ package command
 
 import (
 	"context"
+	"fmt"
 	"tickets/entities"
 )
 
-func (h Handler) TicketRefund(ctx context.Context, ticket *entities.RefundTicket) error {
-	reason := "customer requested refund"
-	if err := h.refundsService.RefundReceipt(ctx, entities.VoidReceipt{
-		TicketID:       ticket.TicketID,
-		Reason:         reason,
-		IdempotencyKey: ticket.Header.IdempotencyKey,
-	}); err != nil {
-		return err
+func (h Handler) TicketRefund(ctx context.Context, ticketRefund *entities.RefundTicket) error {
+	idempotencyKey := ticketRefund.Header.IdempotencyKey
+	if idempotencyKey == "" {
+		return fmt.Errorf("idempotency key is required")
 	}
 
-	if err := h.refundsService.VoidReceipt(ctx, entities.VoidReceipt{
-		TicketID:       ticket.TicketID,
-		Reason:         reason,
-		IdempotencyKey: ticket.Header.IdempotencyKey,
-	}); err != nil {
-		return err
+	err := h.receiptService.VoidReceipt(ctx, entities.VoidReceipt{
+		TicketID:       ticketRefund.TicketID,
+		Reason:         "ticket refunded",
+		IdempotencyKey: idempotencyKey,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to void receipt: %w", err)
+	}
+
+	err = h.paymentsService.RefundPayment(ctx, entities.PaymentRefund{
+		TicketID:       ticketRefund.TicketID,
+		RefundReason:   "ticket refunded",
+		IdempotencyKey: idempotencyKey,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to refund payment: %w", err)
+	}
+
+	err = h.eventBus.Publish(ctx, entities.TicketRefunded{
+		Header:   entities.NewEventHeader(),
+		TicketID: ticketRefund.TicketID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to publish TicketRefunded event: %w", err)
 	}
 
 	return nil

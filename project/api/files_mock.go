@@ -4,30 +4,38 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"tickets/entities"
 )
 
 type FilesMock struct {
-	mock sync.Mutex
-
-	Files map[string]string
+	lock  sync.Mutex
+	files map[string]string
 }
 
-func (f *FilesMock) PrintTicket(ctx context.Context, ticket entities.Ticket) (string, error) {
-	f.mock.Lock()
-	defer f.mock.Unlock()
+func (c *FilesMock) UploadFile(ctx context.Context, fileID string, fileContent string) error {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 
-	fileID := fmt.Sprintf("%s-ticket.html", ticket.TicketID)
-	fileBody := fmt.Sprintf("Ticket ID: %s. Price: %s %s", ticket.TicketID, ticket.Price.Amount, ticket.Price.Currency)
-
-	if f.Files == nil {
-		f.Files = make(map[string]string)
+	if c.files == nil {
+		c.files = make(map[string]string)
 	}
 
-	if _, ok := f.Files[fileID]; ok {
-		return "", nil
+	c.files[fileID] = fileContent
+
+	return nil
+}
+
+func (c *FilesMock) DownloadFile(ctx context.Context, fileID string) (string, error) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	if c.files == nil {
+		c.files = make(map[string]string)
 	}
 
-	f.Files[fileID] = fileBody
-	return fileID, nil
+	fileContent, ok := c.files[fileID]
+	if !ok {
+		return "", fmt.Errorf("file %s not found", fileID)
+	}
+
+	return fileContent, nil
 }

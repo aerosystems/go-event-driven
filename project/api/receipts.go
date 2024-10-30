@@ -23,9 +23,8 @@ func NewReceiptsServiceClient(clients *clients.Clients) *ReceiptsServiceClient {
 }
 
 func (c ReceiptsServiceClient) IssueReceipt(ctx context.Context, request entities.IssueReceiptRequest) (entities.IssueReceiptResponse, error) {
-	key := request.IdempotencyKey + request.TicketID
 	resp, err := c.clients.Receipts.PutReceiptsWithResponse(ctx, receipts.CreateReceipt{
-		IdempotencyKey: &key,
+		IdempotencyKey: &request.IdempotencyKey,
 
 		Price: receipts.Money{
 			MoneyAmount:   request.Price.Amount,
@@ -53,4 +52,21 @@ func (c ReceiptsServiceClient) IssueReceipt(ctx context.Context, request entitie
 	default:
 		return entities.IssueReceiptResponse{}, fmt.Errorf("unexpected status code for POST receipts-api/receipts: %d", resp.StatusCode())
 	}
+}
+
+func (c ReceiptsServiceClient) VoidReceipt(ctx context.Context, request entities.VoidReceipt) error {
+	resp, err := c.clients.Receipts.PutVoidReceiptWithResponse(ctx, receipts.VoidReceiptRequest{
+		Reason:       request.Reason,
+		TicketId:     request.TicketID,
+		IdempotentId: &request.IdempotencyKey,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to post void receipt: %w", err)
+	}
+
+	if resp.StatusCode() != http.StatusOK {
+		return fmt.Errorf("unexpected status code for POST receipts-api/receipts/void: %d", resp.StatusCode())
+	}
+
+	return nil
 }

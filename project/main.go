@@ -40,7 +40,7 @@ func main() {
 	spreadsheetsService := api.NewSpreadsheetsAPIClient(apiClients)
 	receiptsService := api.NewReceiptsServiceClient(apiClients)
 	filesService := api.NewFilesServiceClient(apiClients)
-	refundsService := api.NewRefundsServiceClient(apiClients)
+	paymentsService := api.NewPaymentsServiceClient(apiClients)
 	deadNationService := api.NewDeadNationServiceClient(apiClients)
 
 	err = service.New(
@@ -49,7 +49,7 @@ func main() {
 		spreadsheetsService,
 		receiptsService,
 		filesService,
-		refundsService,
+		paymentsService,
 		deadNationService,
 	).Run(ctx)
 	if err != nil {

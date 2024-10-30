@@ -33,6 +33,6 @@ type BookingRepository interface {
 }
 
 type OpsReadModel interface {
-	AllReservations() ([]entities.OpsBooking, error)
+	AllReservations(receiptIssueDateFilter string) ([]entities.OpsBooking, error)
 	ReservationReadModel(ctx context.Context, bookingID string) (entities.OpsBooking, error)
 }

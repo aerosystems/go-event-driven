@@ -6,13 +6,13 @@ import (
 	"tickets/entities"
 )
 
-func (h Handler) TicketRefund(ctx context.Context, ticketRefund *entities.RefundTicket) error {
+func (h Handler) RefundTicket(ctx context.Context, ticketRefund *entities.RefundTicket) error {
 	idempotencyKey := ticketRefund.Header.IdempotencyKey
 	if idempotencyKey == "" {
 		return fmt.Errorf("idempotency key is required")
 	}
 
-	err := h.receiptService.VoidReceipt(ctx, entities.VoidReceipt{
+	err := h.receiptsServiceClient.VoidReceipt(ctx, entities.VoidReceipt{
 		TicketID:       ticketRefund.TicketID,
 		Reason:         "ticket refunded",
 		IdempotencyKey: idempotencyKey,
@@ -21,7 +21,7 @@ func (h Handler) TicketRefund(ctx context.Context, ticketRefund *entities.Refund
 		return fmt.Errorf("failed to void receipt: %w", err)
 	}
 
-	err = h.paymentsService.RefundPayment(ctx, entities.PaymentRefund{
+	err = h.paymentsServiceClient.RefundPayment(ctx, entities.PaymentRefund{
 		TicketID:       ticketRefund.TicketID,
 		RefundReason:   "ticket refunded",
 		IdempotencyKey: idempotencyKey,

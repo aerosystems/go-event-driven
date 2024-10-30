@@ -64,6 +64,7 @@ type SpreadsheetsAPI interface {
 
 type ReceiptsService interface {
 	IssueReceipt(ctx context.Context, request entities.IssueReceiptRequest) (entities.IssueReceiptResponse, error)
+	VoidReceipt(ctx context.Context, request entities.VoidReceipt) error
 }
 
 type FilesService interface {

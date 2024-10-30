@@ -13,6 +13,7 @@ type Handler struct {
 	ticketRepo            TicketRepository
 	showRepo              ShowRepository
 	bookingRepo           BookingRepository
+	opsReadModel          OpsReadModel
 }
 
 type SpreadsheetsAPI interface {
@@ -29,4 +30,9 @@ type ShowRepository interface {
 
 type BookingRepository interface {
 	AddBooking(ctx context.Context, booking entities.Booking) error
+}
+
+type OpsReadModel interface {
+	AllReservations() ([]entities.OpsBooking, error)
+	ReservationReadModel(ctx context.Context, bookingID string) (entities.OpsBooking, error)
 }

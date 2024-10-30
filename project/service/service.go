@@ -49,7 +49,7 @@ func New(
 	redisPublisher = message.NewRedisPublisher(redisClient, watermillLogger)
 	redisPublisher = log.CorrelationPublisherDecorator{Publisher: redisPublisher}
 
-	commandBus := command.NewBus(redisPublisher)
+	commandBus := command.NewBus(redisPublisher, command.NewBusConfig(watermillLogger))
 	eventBus := event.NewBus(redisPublisher)
 	ticketsRepo := db.NewTicketRepository(dbConn)
 	showsRepo := db.NewShowRepository(dbConn)
@@ -67,7 +67,8 @@ func New(
 	)
 
 	commandHandler := command.NewHandler(
-		commandBus,
+		eventBus,
+		receiptsService,
 		paymentsService,
 	)
 
@@ -93,6 +94,7 @@ func New(
 		ticketsRepo,
 		showsRepo,
 		bookingRepo,
+		opsBookingRepo,
 	)
 
 	return Service{

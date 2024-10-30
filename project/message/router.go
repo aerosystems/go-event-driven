@@ -95,7 +95,7 @@ func NewWatermillRouter(
 	commandProcessor.AddHandlers(
 		cqrs.NewCommandHandler(
 			"TicketRefund",
-			commandsHandler.TicketRefund,
+			commandsHandler.RefundTicket,
 		),
 	)
 

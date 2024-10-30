@@ -2,38 +2,42 @@ package command
 
 import (
 	"context"
-	"github.com/ThreeDotsLabs/watermill/components/cqrs"
 	"tickets/entities"
+
+	"github.com/ThreeDotsLabs/watermill/components/cqrs"
 )
 
 type Handler struct {
-	commandBus      *cqrs.CommandBus
-	paymentsService PaymentsService
-	receiptService  ReceiptService
+	eventBus *cqrs.EventBus
+
+	receiptsServiceClient ReceiptsService
+	paymentsServiceClient PaymentsService
 }
 
-func NewHandler(commandBus *cqrs.CommandBus, paymentsService PaymentsService, receiptService ReceiptService) Handler {
-	if commandBus == nil {
-		panic("missing commandBus")
+func NewHandler(eventBus *cqrs.EventBus, receiptsServiceClient ReceiptsService, paymentsServiceClient PaymentsService) Handler {
+	if eventBus == nil {
+		panic("eventBus is required")
 	}
-	if paymentsService == nil {
-		panic("missing paymentsService")
+	if receiptsServiceClient == nil {
+		panic("receiptsServiceClient is required")
 	}
-	if receiptService == nil {
-		panic("missing receiptService")
+	if paymentsServiceClient == nil {
+		panic("paymentsServiceClient is required")
 	}
 
-	return Handler{
-		commandBus:      commandBus,
-		paymentsService: paymentsService,
-		receiptService:  receiptService,
+	handler := Handler{
+		eventBus:              eventBus,
+		receiptsServiceClient: receiptsServiceClient,
+		paymentsServiceClient: paymentsServiceClient,
 	}
+
+	return handler
+}
+
+type ReceiptsService interface {
+	VoidReceipt(ctx context.Context, request entities.VoidReceipt) error
 }
 
 type PaymentsService interface {
-	RefundPayment(ctx context.Context, refundPayment entities.PaymentRefund) error
-}
-
-type ReceiptService interface {
-	VoidReceipt(ctx context.Context, request entities.VoidReceipt) error
+	RefundPayment(ctx context.Context, request entities.PaymentRefund) error
 }

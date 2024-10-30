@@ -89,7 +89,7 @@ func (r OpsBookingReadModel) OnTicketBookingConfirmed(ctx context.Context, event
 			ticket.PriceAmount = event.Price.Amount
 			ticket.PriceCurrency = event.Price.Currency
 			ticket.CustomerEmail = event.CustomerEmail
-			ticket.Status = "confirmed"
+			ticket.Status = "refunded"
 
 			rm.Tickets[event.TicketID] = ticket
 

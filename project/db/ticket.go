@@ -2,8 +2,8 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"github.com/jmoiron/sqlx"
-	"strconv"
 	"tickets/entities"
 )
 
@@ -23,58 +23,67 @@ type Ticket struct {
 	PriceAmount   float64 `db:"price_amount"`
 	PriceCurrency string  `db:"price_currency"`
 	CustomerEmail string  `db:"customer_email"`
+	DeletedAt     *string `db:"deleted_at"`
 }
 
-func entityToTicket(ticket entities.Ticket) (Ticket, error) {
-	priceAmount, err := strconv.ParseFloat(ticket.Price.Amount, 64)
+func (r TicketRepository) Add(ctx context.Context, ticket entities.Ticket) error {
+	_, err := r.db.NamedExecContext(
+		ctx,
+		`
+		INSERT INTO 
+    		tickets (ticket_id, price_amount, price_currency, customer_email) 
+		VALUES 
+		    (:ticket_id, :price.amount, :price.currency, :customer_email) 
+		ON CONFLICT DO NOTHING`,
+		ticket,
+	)
 	if err != nil {
-		return Ticket{}, err
+		return fmt.Errorf("could not save ticket: %w", err)
 	}
-	return Ticket{
-		ID:            ticket.TicketID,
-		PriceAmount:   priceAmount,
-		PriceCurrency: ticket.Price.Currency,
-		CustomerEmail: ticket.CustomerEmail,
-	}, nil
-}
 
-func (r TicketRepository) Add(ctx context.Context, t entities.Ticket) error {
-	ticket, err := entityToTicket(t)
-	if err != nil {
-		return err
-	}
-	_, err = r.db.NamedExecContext(ctx, `
-		INSERT INTO tickets (ticket_id, price_amount, price_currency, customer_email)
-		VALUES (:ticket_id, :price_amount, :price_currency, :customer_email)
-		ON CONFLICT (ticket_id) DO NOTHING
-	`, ticket)
-	return err
+	return nil
 }
 
 func (r TicketRepository) Remove(ctx context.Context, ticketID string) error {
-	_, err := r.db.ExecContext(ctx, `
-		DELETE FROM tickets WHERE ticket_id = $1
-	`, ticketID)
-	return err
+	res, err := r.db.ExecContext(
+		ctx,
+		`UPDATE tickets SET deleted_at = now() WHERE ticket_id = $1`,
+		ticketID,
+	)
+	if err != nil {
+		return fmt.Errorf("could not remove ticket: %w", err)
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("could get rows affected: %w", err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("ticket with id %s not found", ticketID)
+	}
+
+	return nil
 }
 
 func (r TicketRepository) GetAll(ctx context.Context) ([]entities.Ticket, error) {
-	var tickets []Ticket
-	err := r.db.SelectContext(ctx, &tickets, "SELECT * FROM tickets")
+	var returnTickets []entities.Ticket
+
+	err := r.db.SelectContext(
+		ctx,
+		&returnTickets, `
+			SELECT 
+				ticket_id,
+				price_amount as "price.amount", 
+				price_currency as "price.currency",
+				customer_email
+			FROM 
+			    tickets
+			WHERE
+				deleted_at IS NULL
+		`,
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	result := make([]entities.Ticket, 0, len(tickets))
-	for _, ticket := range tickets {
-		result = append(result, entities.Ticket{
-			TicketID: ticket.ID,
-			Price: entities.Money{
-				Amount:   strconv.FormatFloat(ticket.PriceAmount, 'f', 2, 64),
-				Currency: ticket.PriceCurrency,
-			},
-			CustomerEmail: ticket.CustomerEmail,
-		})
-	}
-	return result, nil
+	return returnTickets, nil
 }

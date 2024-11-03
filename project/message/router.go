@@ -1,8 +1,10 @@
 package message
 
 import (
+	"context"
 	"fmt"
 	"tickets/db"
+	"tickets/entities"
 	"tickets/message/command"
 	"tickets/message/event"
 	"tickets/message/outbox"
@@ -21,6 +23,7 @@ func NewWatermillRouter(
 	commandProcessorConfig cqrs.CommandProcessorConfig,
 	commandsHandler command.Handler,
 	opsReadModel db.OpsBookingReadModel,
+	dataLakeRepo db.DataLakeRepository,
 	watermillLogger watermill.LoggerAdapter,
 ) *message.Router {
 	router, err := message.NewRouter(message.RouterConfig{}, watermillLogger)
@@ -110,8 +113,24 @@ func NewWatermillRouter(
 			if eventName == "" {
 				return fmt.Errorf("cannot get event name from message")
 			}
+			if err := redisPublisher.Publish("events."+eventName, msg); err != nil {
+				return fmt.Errorf("cannot publish message: %w", err)
+			}
 
-			return redisPublisher.Publish("events."+eventName, msg)
+			type Event struct {
+				Header entities.EventHeader `json:"header"`
+			}
+			var event Event
+			if err := eventProcessorConfig.Marshaler.Unmarshal(msg, &event); err != nil {
+				return fmt.Errorf("cannot unmarshal event: %w", err)
+			}
+
+			return dataLakeRepo.AddEvent(context.Background(), entities.DataLakeEvent{
+				ID:          event.Header.ID,
+				Name:        eventName,
+				Payload:     msg.Payload,
+				PublishedAt: event.Header.PublishedAt,
+			})
 		},
 	)
 

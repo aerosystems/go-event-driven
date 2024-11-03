@@ -9,8 +9,8 @@ import (
 
 func (h Handler) PutTicketRefund(c echo.Context) error {
 	ticketID := c.Param("ticket_id")
-
 	if err := h.commandBus.Send(context.Background(), entities.RefundTicket{
+		Header:   entities.NewCommandHeader(),
 		TicketID: ticketID,
 	}); err != nil {
 		return err

@@ -21,8 +21,6 @@ import (
 	"tickets/message/outbox"
 )
 
-const ForwarderTopic = "events_to_forward"
-
 func init() {
 	log.Init(logrus.InfoLevel)
 }
@@ -48,6 +46,9 @@ func New(
 	var redisPublisher watermillMessage.Publisher
 	redisPublisher = message.NewRedisPublisher(redisClient, watermillLogger)
 	redisPublisher = log.CorrelationPublisherDecorator{Publisher: redisPublisher}
+
+	var redisSubscriber watermillMessage.Subscriber
+	redisSubscriber = message.NewRedisSubscriber(redisClient, watermillLogger)
 
 	commandBus := command.NewBus(redisPublisher, command.NewBusConfig(watermillLogger))
 	eventBus := event.NewBus(redisPublisher)
@@ -80,6 +81,7 @@ func New(
 	watermillRouter := message.NewWatermillRouter(
 		postgresSubscriber,
 		redisPublisher,
+		redisSubscriber,
 		eventProcessorConfig,
 		eventsHandler,
 		commandProcessorConfig,

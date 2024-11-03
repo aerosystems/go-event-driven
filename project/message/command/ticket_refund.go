@@ -30,12 +30,12 @@ func (h Handler) RefundTicket(ctx context.Context, ticketRefund *entities.Refund
 		return fmt.Errorf("failed to refund payment: %w", err)
 	}
 
-	err = h.eventBus.Publish(ctx, entities.TicketRefunded{
+	err = h.eventBus.Publish(ctx, entities.TicketRefunded_v1{
 		Header:   entities.NewEventHeader(),
 		TicketID: ticketRefund.TicketID,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to publish TicketRefunded event: %w", err)
+		return fmt.Errorf("failed to publish TicketRefunded_v1 event: %w", err)
 	}
 
 	return nil

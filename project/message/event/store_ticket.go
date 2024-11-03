@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func (h Handler) StoreTicket(ctx context.Context, event *entities.TicketBookingConfirmed) error {
+func (h Handler) StoreTicket(ctx context.Context, event *entities.TicketBookingConfirmed_v1) error {
 	log.FromContext(ctx).Info("Storing ticket")
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)

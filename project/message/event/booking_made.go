@@ -8,7 +8,7 @@ import (
 	"tickets/entities"
 )
 
-func (h Handler) BookingMade(ctx context.Context, event *entities.BookingMade) error {
+func (h Handler) BookingMade(ctx context.Context, event *entities.BookingMade_v1) error {
 	log.FromContext(ctx).Info("Booking made")
 
 	show, err := h.showRepo.Get(ctx, event.ShowId.String())

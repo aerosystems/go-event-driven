@@ -7,7 +7,7 @@ import (
 	"tickets/entities"
 )
 
-func (h Handler) PrintTicket(ctx context.Context, event *entities.TicketBookingConfirmed) error {
+func (h Handler) PrintTicket(ctx context.Context, event *entities.TicketBookingConfirmed_v1) error {
 	log.FromContext(ctx).Info("Printing ticket")
 
 	fileID, err := h.filesService.PrintTicket(
@@ -27,7 +27,7 @@ func (h Handler) PrintTicket(ctx context.Context, event *entities.TicketBookingC
 		return nil
 	}
 
-	return h.eventBus.Publish(ctx, entities.TicketPrinted{
+	return h.eventBus.Publish(ctx, entities.TicketPrinted_v1{
 		Header:   entities.NewEventHeader(),
 		TicketID: event.TicketID,
 		FileName: fileID,

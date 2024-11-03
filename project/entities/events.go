@@ -20,7 +20,7 @@ func NewEventHeader() EventHeader {
 	}
 }
 
-type TicketBookingConfirmed struct {
+type TicketBookingConfirmed_v1 struct {
 	Header EventHeader `json:"header"`
 
 	TicketID      string `json:"ticket_id"`
@@ -30,7 +30,7 @@ type TicketBookingConfirmed struct {
 	BookingID string `json:"booking_id"`
 }
 
-type TicketBookingCanceled struct {
+type TicketBookingCanceled_v1 struct {
 	Header EventHeader `json:"header"`
 
 	TicketID      string `json:"ticket_id"`
@@ -38,20 +38,20 @@ type TicketBookingCanceled struct {
 	Price         Money  `json:"price"`
 }
 
-type TicketPrinted struct {
+type TicketPrinted_v1 struct {
 	Header EventHeader `json:"header"`
 
 	TicketID string `json:"ticket_id"`
 	FileName string `json:"file_name"`
 }
 
-type TicketRefunded struct {
+type TicketRefunded_v1 struct {
 	Header EventHeader `json:"header"`
 
 	TicketID string `json:"ticket_id"`
 }
 
-type BookingMade struct {
+type BookingMade_v1 struct {
 	Header EventHeader `json:"header"`
 
 	NumberOfTickets int `json:"number_of_tickets"`
@@ -60,11 +60,4 @@ type BookingMade struct {
 
 	CustomerEmail string    `json:"customer_email"`
 	ShowId        uuid.UUID `json:"show_id"`
-}
-
-type DataLakeEvent struct {
-	ID          string    `json:"event_id"`
-	Name        string    `json:"event_name"`
-	Payload     []byte    `json:"event_payload"`
-	PublishedAt time.Time `json:"published_at"`
 }

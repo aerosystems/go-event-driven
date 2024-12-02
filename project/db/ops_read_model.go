@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"tickets/entities"
 	"time"
@@ -187,7 +188,7 @@ func (r OpsBookingReadModel) updateBookingReadModel(
 		sql.LevelRepeatableRead,
 		func(ctx context.Context, tx *sqlx.Tx) error {
 			rm, err := r.findReadModelByBookingID(ctx, bookingID, tx)
-			if err == sql.ErrNoRows {
+			if errors.Is(err, sql.ErrNoRows) {
 				// events arrived out of order - it should spin until the read model is created
 				return fmt.Errorf("read model for booking %s not exist yet", bookingID)
 			} else if err != nil {

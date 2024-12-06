@@ -55,7 +55,7 @@ func New(
 	ticketsRepo := db.NewTicketRepository(dbConn)
 	showsRepo := db.NewShowRepository(dbConn)
 	bookingRepo := db.NewBookingRepository(dbConn)
-	opsBookingRepo := db.NewOpsBookingReadModel(dbConn)
+	opsBookingRepo := db.NewOpsBookingReadModel(dbConn, eventBus)
 	dataLakeRepo := db.NewDataLakeRepository(dbConn)
 
 	eventsHandler := event.NewHandler(

@@ -4,8 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"github.com/ThreeDotsLabs/watermill/components/cqrs"
+	"github.com/google/uuid"
 	"tickets/entities"
 	"time"
 
@@ -14,15 +15,16 @@ import (
 )
 
 type OpsBookingReadModel struct {
-	db *sqlx.DB
+	db       *sqlx.DB
+	eventBus *cqrs.EventBus
 }
 
-func NewOpsBookingReadModel(db *sqlx.DB) OpsBookingReadModel {
+func NewOpsBookingReadModel(db *sqlx.DB, eventBus *cqrs.EventBus) OpsBookingReadModel {
 	if db == nil {
 		panic("db is nil")
 	}
 
-	return OpsBookingReadModel{db: db}
+	return OpsBookingReadModel{db: db, eventBus: eventBus}
 }
 
 func (r OpsBookingReadModel) AllReservations(receiptIssueDateFilter string) ([]entities.OpsBooking, error) {
@@ -174,7 +176,10 @@ func (r OpsBookingReadModel) createReadModel(
 		return fmt.Errorf("could not create read model: %w", err)
 	}
 
-	return nil
+	return r.eventBus.Publish(ctx, &entities.InternalOpsReadModelUpdated{
+		Header:    entities.NewEventHeader(),
+		BookingID: booking.BookingID,
+	})
 }
 
 func (r OpsBookingReadModel) updateBookingReadModel(
@@ -182,13 +187,13 @@ func (r OpsBookingReadModel) updateBookingReadModel(
 	bookingID string,
 	updateFunc func(ticket entities.OpsBooking) (entities.OpsBooking, error),
 ) (err error) {
-	return updateInTx(
+	if err := updateInTx(
 		ctx,
 		r.db,
 		sql.LevelRepeatableRead,
 		func(ctx context.Context, tx *sqlx.Tx) error {
 			rm, err := r.findReadModelByBookingID(ctx, bookingID, tx)
-			if errors.Is(err, sql.ErrNoRows) {
+			if err == sql.ErrNoRows {
 				// events arrived out of order - it should spin until the read model is created
 				return fmt.Errorf("read model for booking %s not exist yet", bookingID)
 			} else if err != nil {
@@ -202,7 +207,14 @@ func (r OpsBookingReadModel) updateBookingReadModel(
 
 			return r.updateReadModel(ctx, tx, updatedRm)
 		},
-	)
+	); err != nil {
+		return err
+	}
+
+	return r.eventBus.Publish(ctx, &entities.InternalOpsReadModelUpdated{
+		Header:    entities.NewEventHeader(),
+		BookingID: uuid.MustParse(bookingID),
+	})
 }
 
 func (r OpsBookingReadModel) updateTicketInBookingReadModel(

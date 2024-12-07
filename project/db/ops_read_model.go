@@ -142,7 +142,7 @@ func (r OpsBookingReadModel) OnTicketPrinted(ctx context.Context, event *entitie
 	)
 }
 
-func (r OpsBookingReadModel) OnTicketReceiptIssued(ctx context.Context, issued *entities.TicketReceiptIssued) error {
+func (r OpsBookingReadModel) OnTicketReceiptIssued(ctx context.Context, issued *entities.TicketReceiptIssued_v1) error {
 	return r.updateTicketInBookingReadModel(
 		ctx,
 		issued.TicketID,

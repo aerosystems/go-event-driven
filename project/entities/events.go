@@ -27,7 +27,8 @@ func NewEventHeader() EventHeader {
 type TicketBookingConfirmed_v1 struct {
 	Header EventHeader `json:"header"`
 
-	TicketID      string `json:"ticket_id"`
+	TicketID string `json:"ticket_id"`
+
 	CustomerEmail string `json:"customer_email"`
 	Price         Money  `json:"price"`
 
@@ -94,4 +95,17 @@ type InternalOpsReadModelUpdated struct {
 
 func (i InternalOpsReadModelUpdated) IsInternal() bool {
 	return true
+}
+
+type TicketReceiptIssued_v1 struct {
+	Header EventHeader `json:"header"`
+
+	TicketID      string `json:"ticket_id"`
+	ReceiptNumber string `json:"receipt_number"`
+
+	IssuedAt time.Time `json:"issued_at"`
+}
+
+func (t TicketReceiptIssued_v1) IsInternal() bool {
+	return false
 }

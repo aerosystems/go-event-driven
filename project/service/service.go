@@ -19,6 +19,7 @@ import (
 	"tickets/message/command"
 	"tickets/message/event"
 	"tickets/message/outbox"
+	"tickets/migrations"
 )
 
 func init() {
@@ -27,9 +28,11 @@ func init() {
 
 type Service struct {
 	db              *sqlx.DB
-	redisClient     *redis.Client
 	watermillRouter *watermillMessage.Router
 	echoRouter      *echo.Echo
+
+	dataLake     db.DataLakeRepository
+	opsReadModel db.OpsBookingReadModel
 }
 
 func New(
@@ -103,9 +106,10 @@ func New(
 
 	return Service{
 		dbConn,
-		redisClient,
 		watermillRouter,
 		echoRouter,
+		dataLakeRepo,
+		opsBookingRepo,
 	}
 }
 
@@ -115,6 +119,12 @@ func (s Service) Run(
 	if err := db.InitializeDatabaseSchema(s.db); err != nil {
 		return fmt.Errorf("failed to initialize database schema: %w", err)
 	}
+
+	go func() {
+		if err := migrations.MigrateReadModel(ctx, s.dataLake, s.opsReadModel); err != nil {
+			log.FromContext(ctx).Errorf("failed to migrate read model: %v", err)
+		}
+	}()
 
 	g, ctx := errgroup.WithContext(ctx)
 

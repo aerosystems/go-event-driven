@@ -1,6 +1,7 @@
 package http
 
 import (
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"net/http"
 
 	libHttp "github.com/ThreeDotsLabs/go-event-driven/common/http"
@@ -40,6 +41,8 @@ func NewHttpRouter(
 	e.PUT("/ticket-refund/:ticket_id", handler.PutTicketRefund)
 	e.GET("/ops/bookings", handler.GetOpsTickets)
 	e.GET("/ops/bookings/:id", handler.GetOpsTicket)
+
+	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 
 	return e
 }

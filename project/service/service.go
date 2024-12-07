@@ -9,6 +9,8 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
 	_ "github.com/lib/pq"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
@@ -20,6 +22,16 @@ import (
 	"tickets/message/event"
 	"tickets/message/outbox"
 	"tickets/migrations"
+	"time"
+)
+
+var (
+	veryImportantCounter = promauto.NewCounter(prometheus.CounterOpts{
+		// metric will be named tickets_very_important_counter_total
+		Namespace: "tickets",
+		Name:      "very_important_counter_total",
+		Help:      "Total number of very important things processed",
+	})
 )
 
 func init() {
@@ -123,6 +135,13 @@ func (s Service) Run(
 	go func() {
 		if err := migrations.MigrateReadModel(ctx, s.dataLake, s.opsReadModel); err != nil {
 			log.FromContext(ctx).Errorf("failed to migrate read model: %v", err)
+		}
+	}()
+
+	go func() {
+		for {
+			veryImportantCounter.Inc()
+			time.Sleep(time.Millisecond * 100)
 		}
 	}()
 

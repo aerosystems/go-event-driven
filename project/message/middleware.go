@@ -1,6 +1,8 @@
 package message
 
 import (
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"time"
 
 	"github.com/ThreeDotsLabs/go-event-driven/common/log"
@@ -9,6 +11,25 @@ import (
 	"github.com/ThreeDotsLabs/watermill/message/router/middleware"
 	"github.com/lithammer/shortuuid/v3"
 	"github.com/sirupsen/logrus"
+)
+
+var (
+	messagesProcessedTotalCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "messages",
+		Name:      "processed_total",
+	}, []string{"topic", "handler"})
+
+	messagesProcessingFailedTotalCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "messages",
+		Name:      "processing_failed_total",
+	}, []string{"topic", "handler"})
+
+	messagesProcessingDurationSeconds = promauto.NewSummaryVec(prometheus.SummaryOpts{
+		Namespace:  "messages",
+		Name:       "processing_duration_seconds",
+		Help:       "The total time spent processing messages",
+		Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
+	}, []string{"topic", "handler"})
 )
 
 func useMiddlewares(router *message.Router, watermillLogger watermill.LoggerAdapter) {
@@ -56,6 +77,28 @@ func useMiddlewares(router *message.Router, watermillLogger watermill.LoggerAdap
 			}
 
 			return msgs, err
+		}
+	})
+
+	router.AddMiddleware(func(next message.HandlerFunc) message.HandlerFunc {
+		return func(msg *message.Message) ([]*message.Message, error) {
+			subscribeTopicName := message.SubscriberNameFromCtx(msg.Context())
+			handlerName := message.HandlerNameFromCtx(msg.Context())
+
+			labels := prometheus.Labels{"topic": subscribeTopicName, "handler": handlerName}
+			messagesProcessedTotalCounter.With(labels).Inc()
+
+			timeStart := time.Now()
+			msgs, err := next(msg)
+			if err != nil {
+				messagesProcessingFailedTotalCounter.With(labels).Inc()
+				return msgs, err
+			}
+
+			messagesProcessingDurationSeconds.With(labels).Observe(time.Since(timeStart).Seconds())
+
+			return msgs, nil
+
 		}
 	})
 }

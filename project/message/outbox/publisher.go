@@ -3,6 +3,7 @@ package outbox
 import (
 	"context"
 	"fmt"
+	"tickets/observability"
 
 	"github.com/ThreeDotsLabs/go-event-driven/common/log"
 	watermillSQL "github.com/ThreeDotsLabs/watermill-sql/v2/pkg/sql"
@@ -26,12 +27,14 @@ func NewPublisherForDb(ctx context.Context, db *sqlx.Tx) (message.Publisher, err
 	if err != nil {
 		return nil, fmt.Errorf("failed to create outbox publisher: %w", err)
 	}
-	publisher = log.CorrelationPublisherDecorator{publisher}
+	publisher = log.CorrelationPublisherDecorator{Publisher: publisher}
+	publisher = observability.TracingPublisherDecorator{Publisher: publisher}
 
 	publisher = forwarder.NewPublisher(publisher, forwarder.PublisherConfig{
 		ForwarderTopic: outboxTopic,
 	})
-	publisher = log.CorrelationPublisherDecorator{publisher}
+	publisher = log.CorrelationPublisherDecorator{Publisher: publisher}
+	publisher = observability.TracingPublisherDecorator{Publisher: publisher}
 
 	return publisher, nil
 }

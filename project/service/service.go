@@ -2,17 +2,15 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/ThreeDotsLabs/go-event-driven/common/log"
 	watermillMessage "github.com/ThreeDotsLabs/watermill/message"
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
 	_ "github.com/lib/pq"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
+	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	"golang.org/x/sync/errgroup"
 	stdHTTP "net/http"
 	"tickets/db"
@@ -21,17 +19,7 @@ import (
 	"tickets/message/command"
 	"tickets/message/event"
 	"tickets/message/outbox"
-	"tickets/migrations"
-	"time"
-)
-
-var (
-	veryImportantCounter = promauto.NewCounter(prometheus.CounterOpts{
-		// metric will be named tickets_very_important_counter_total
-		Namespace: "tickets",
-		Name:      "very_important_counter_total",
-		Help:      "Total number of very important things processed",
-	})
+	"tickets/observability"
 )
 
 func init() {
@@ -45,6 +33,8 @@ type Service struct {
 
 	dataLake     db.DataLakeRepository
 	opsReadModel db.OpsBookingReadModel
+
+	traceProvider *tracesdk.TracerProvider
 }
 
 func New(
@@ -61,6 +51,7 @@ func New(
 	var redisPublisher watermillMessage.Publisher
 	redisPublisher = message.NewRedisPublisher(redisClient, watermillLogger)
 	redisPublisher = log.CorrelationPublisherDecorator{Publisher: redisPublisher}
+	redisPublisher = observability.TracingPublisherDecorator{Publisher: redisPublisher}
 
 	var redisSubscriber watermillMessage.Subscriber
 	redisSubscriber = message.NewRedisSubscriber(redisClient, watermillLogger)
@@ -122,6 +113,7 @@ func New(
 		echoRouter,
 		dataLakeRepo,
 		opsBookingRepo,
+		observability.ConfigureTraceProvider(),
 	}
 }
 
@@ -132,42 +124,34 @@ func (s Service) Run(
 		return fmt.Errorf("failed to initialize database schema: %w", err)
 	}
 
-	go func() {
-		if err := migrations.MigrateReadModel(ctx, s.dataLake, s.opsReadModel); err != nil {
-			log.FromContext(ctx).Errorf("failed to migrate read model: %v", err)
-		}
-	}()
+	errgrp, ctx := errgroup.WithContext(ctx)
 
-	go func() {
-		for {
-			veryImportantCounter.Inc()
-			time.Sleep(time.Millisecond * 100)
-		}
-	}()
-
-	g, ctx := errgroup.WithContext(ctx)
-
-	g.Go(func() error {
+	errgrp.Go(func() error {
 		return s.watermillRouter.Run(ctx)
 	})
 
-	g.Go(func() error {
+	errgrp.Go(func() error {
 		// we don't want to start HTTP server before Watermill router (so service won't be healthy before it's ready)
 		<-s.watermillRouter.Running()
 
 		err := s.echoRouter.Start(":8080")
 
-		if err != nil && !errors.Is(err, stdHTTP.ErrServerClosed) {
+		if err != nil && err != stdHTTP.ErrServerClosed {
 			return err
 		}
 
 		return nil
 	})
 
-	g.Go(func() error {
+	errgrp.Go(func() error {
 		<-ctx.Done()
 		return s.echoRouter.Shutdown(context.Background())
 	})
 
-	return g.Wait()
+	errgrp.Go(func() error {
+		<-ctx.Done()
+		return s.traceProvider.Shutdown(context.Background())
+	})
+
+	return errgrp.Wait()
 }

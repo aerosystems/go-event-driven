@@ -6,6 +6,7 @@ import (
 	"github.com/ThreeDotsLabs/watermill-redisstream/pkg/redisstream"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/redis/go-redis/v9"
+	"tickets/observability"
 )
 
 func NewRedisSubscriber(rdb *redis.Client, watermillLogger watermill.LoggerAdapter) message.Subscriber {
@@ -27,8 +28,10 @@ func NewRedisPublisher(rdb *redis.Client, watermillLogger watermill.LoggerAdapte
 	if err != nil {
 		panic(err)
 	}
+	pub = log.CorrelationPublisherDecorator{pub}
+	pub = observability.TracingPublisherDecorator{pub}
 
-	return log.CorrelationPublisherDecorator{Publisher: pub}
+	return pub
 }
 
 func NewRedisClient(addr string) *redis.Client {

@@ -3,18 +3,21 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/ThreeDotsLabs/go-event-driven/common/clients"
-	"github.com/ThreeDotsLabs/go-event-driven/common/log"
-	"github.com/jmoiron/sqlx"
-	"github.com/uptrace/opentelemetry-go-extra/otelsql"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 	"net/http"
 	"os"
 	"os/signal"
 	"tickets/api"
 	"tickets/message"
 	"tickets/service"
+
+	_ "github.com/lib/pq"
+
+	"github.com/ThreeDotsLabs/go-event-driven/common/clients"
+	"github.com/ThreeDotsLabs/go-event-driven/common/log"
+	"github.com/jmoiron/sqlx"
+	"github.com/uptrace/opentelemetry-go-extra/otelsql"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 )
 
 func main() {
@@ -56,20 +59,20 @@ func main() {
 	redisClient := message.NewRedisClient(os.Getenv("REDIS_ADDR"))
 	defer redisClient.Close()
 
+	deadNationAPI := api.NewDeadNationClient(apiClients)
 	spreadsheetsService := api.NewSpreadsheetsAPIClient(apiClients)
 	receiptsService := api.NewReceiptsServiceClient(apiClients)
-	filesService := api.NewFilesServiceClient(apiClients)
+	filesAPI := api.NewFilesApiClient(apiClients)
 	paymentsService := api.NewPaymentsServiceClient(apiClients)
-	deadNationService := api.NewDeadNationServiceClient(apiClients)
 
 	err = service.New(
 		db,
 		redisClient,
+		deadNationAPI,
 		spreadsheetsService,
 		receiptsService,
-		filesService,
+		filesAPI,
 		paymentsService,
-		deadNationService,
 	).Run(ctx)
 	if err != nil {
 		panic(err)

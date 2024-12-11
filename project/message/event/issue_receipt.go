@@ -22,10 +22,8 @@ func (h Handler) IssueReceipt(ctx context.Context, event *entities.TicketBooking
 		return fmt.Errorf("failed to issue receipt: %w", err)
 	}
 
-	header := entities.NewEventHeader()
-	header.IdempotencyKey = event.Header.IdempotencyKey
-	return h.eventBus.Publish(ctx, entities.TicketReceiptIssued{
-		Header:        header,
+	return h.eventBus.Publish(ctx, entities.TicketReceiptIssued_v1{
+		Header:        entities.NewEventHeaderWithIdempotencyKey(event.Header.IdempotencyKey),
 		TicketID:      event.TicketID,
 		ReceiptNumber: resp.ReceiptNumber,
 		IssuedAt:      resp.IssuedAt,

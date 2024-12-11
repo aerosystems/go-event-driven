@@ -3,30 +3,34 @@ package event
 import (
 	"context"
 	"github.com/ThreeDotsLabs/watermill/components/cqrs"
+	"github.com/google/uuid"
 	"tickets/entities"
 )
 
 type Handler struct {
-	eventBus            *cqrs.EventBus
+	deadNationAPI       DeadNationAPI
 	spreadsheetsService SpreadsheetsAPI
 	receiptsService     ReceiptsService
-	filesService        FilesService
-	ticketRepo          TicketRepository
-	showRepo            ShowRepository
-	deadNationService   DeadNationService
+	filesAPI            FilesAPI
+	ticketsRepository   TicketsRepository
+	showsRepository     ShowsRepository
+	eventBus            *cqrs.EventBus
 }
 
 func NewHandler(
-	eventBus *cqrs.EventBus,
+	deadNationAPI DeadNationAPI,
 	spreadsheetsService SpreadsheetsAPI,
 	receiptsService ReceiptsService,
-	filesService FilesService,
-	ticketRepo TicketRepository,
-	showRepo ShowRepository,
-	deadNationService DeadNationService,
+	filesAPI FilesAPI,
+	ticketsRepository TicketsRepository,
+	showsRepository ShowsRepository,
+	eventBus *cqrs.EventBus,
 ) Handler {
 	if eventBus == nil {
 		panic("missing eventBus")
+	}
+	if deadNationAPI == nil {
+		panic("missing deadNationAPI")
 	}
 	if spreadsheetsService == nil {
 		panic("missing spreadsheetsService")
@@ -34,27 +38,27 @@ func NewHandler(
 	if receiptsService == nil {
 		panic("missing receiptsService")
 	}
-	if filesService == nil {
-		panic("missing filesService")
+	if filesAPI == nil {
+		panic("missing filesAPI")
 	}
-	if ticketRepo == nil {
-		panic("missing ticketRepo")
+	if ticketsRepository == nil {
+		panic("missing ticketsRepository")
 	}
-	if showRepo == nil {
-		panic("missing showRepo")
+	if showsRepository == nil {
+		panic("missing showsRepository")
 	}
-	if deadNationService == nil {
-		panic("missing deadNationService")
+	if eventBus == nil {
+		panic("missing eventBus")
 	}
 
 	return Handler{
-		eventBus:            eventBus,
+		deadNationAPI:       deadNationAPI,
 		spreadsheetsService: spreadsheetsService,
 		receiptsService:     receiptsService,
-		ticketRepo:          ticketRepo,
-		showRepo:            showRepo,
-		filesService:        filesService,
-		deadNationService:   deadNationService,
+		filesAPI:            filesAPI,
+		ticketsRepository:   ticketsRepository,
+		showsRepository:     showsRepository,
+		eventBus:            eventBus,
 	}
 }
 
@@ -64,22 +68,21 @@ type SpreadsheetsAPI interface {
 
 type ReceiptsService interface {
 	IssueReceipt(ctx context.Context, request entities.IssueReceiptRequest) (entities.IssueReceiptResponse, error)
-	VoidReceipt(ctx context.Context, request entities.VoidReceipt) error
 }
 
-type FilesService interface {
-	PrintTicket(ctx context.Context, ticket entities.Ticket) (string, error)
+type FilesAPI interface {
+	UploadFile(ctx context.Context, fileID string, fileContent string) error
 }
 
-type TicketRepository interface {
-	Add(ctx context.Context, t entities.Ticket) error
+type TicketsRepository interface {
+	Add(ctx context.Context, ticket entities.Ticket) error
 	Remove(ctx context.Context, ticketID string) error
 }
 
-type DeadNationService interface {
-	Notify(ctx context.Context, booking entities.DeadNationBooking) error
+type ShowsRepository interface {
+	ShowByID(ctx context.Context, showID uuid.UUID) (entities.Show, error)
 }
 
-type ShowRepository interface {
-	Get(ctx context.Context, showID string) (entities.Show, error)
+type DeadNationAPI interface {
+	BookInDeadNation(ctx context.Context, request entities.DeadNationBooking) error
 }

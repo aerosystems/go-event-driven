@@ -3,36 +3,36 @@ package http
 import (
 	"context"
 	"github.com/ThreeDotsLabs/watermill/components/cqrs"
+	"github.com/google/uuid"
 	"tickets/entities"
 )
 
 type Handler struct {
-	commandBus            *cqrs.CommandBus
 	eventBus              *cqrs.EventBus
+	commandBus            *cqrs.CommandBus
 	spreadsheetsAPIClient SpreadsheetsAPI
-	ticketRepo            TicketRepository
-	showRepo              ShowRepository
-	bookingRepo           BookingRepository
-	opsReadModel          OpsReadModel
+	ticketsRepo           TicketsRepository
+
+	opsBookingReadModel OpsBookingReadModel
+	showsRepository     ShowsRepository
+	bookingsRepository  BookingsRepository
 }
 
 type SpreadsheetsAPI interface {
 	AppendRow(ctx context.Context, spreadsheetName string, row []string) error
 }
 
-type TicketRepository interface {
-	GetAll(ctx context.Context) ([]entities.Ticket, error)
+type TicketsRepository interface {
+	FindAll(ctx context.Context) ([]entities.Ticket, error)
 }
 
-type ShowRepository interface {
-	Create(ctx context.Context, show entities.Show) (string, error)
+type ShowsRepository interface {
+	AddShow(ctx context.Context, show entities.Show) error
+	AllShows(ctx context.Context) ([]entities.Show, error)
+	ShowByID(ctx context.Context, showID uuid.UUID) (entities.Show, error)
 }
 
-type BookingRepository interface {
-	AddBooking(ctx context.Context, booking entities.Booking) error
-}
-
-type OpsReadModel interface {
+type OpsBookingReadModel interface {
 	AllReservations(receiptIssueDateFilter string) ([]entities.OpsBooking, error)
-	ReservationReadModel(ctx context.Context, bookingID string) (entities.OpsBooking, error)
+	ReservationReadModel(ctx context.Context, id string) (entities.OpsBooking, error)
 }

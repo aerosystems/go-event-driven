@@ -19,12 +19,12 @@ type OpsTicket struct {
 	PriceCurrency string `json:"price_currency"`
 	CustomerEmail string `json:"customer_email"`
 
+	ConfirmedAt time.Time `json:"confirmed_at"`
+	RefundedAt  time.Time `json:"refunded_at"`
+
 	PrintedAt       time.Time `json:"printed_at"`
 	PrintedFileName string    `json:"printed_file_name"`
 
 	ReceiptIssuedAt time.Time `json:"receipt_issued_at"`
 	ReceiptNumber   string    `json:"receipt_number"`
-
-	ConfirmedAt time.Time `json:"confirmed_at"`
-	RefundedAt  time.Time `json:"refunded_at"`
 }

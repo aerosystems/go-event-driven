@@ -7,7 +7,7 @@ import (
 )
 
 func (h Handler) RemoveCanceledTicket(ctx context.Context, event *entities.TicketBookingCanceled_v1) error {
-	log.FromContext(ctx).Info("Removing canceled ticket")
+	log.FromContext(ctx).Info("Storing ticket")
 
-	return h.ticketRepo.Remove(ctx, event.TicketID)
+	return h.ticketsRepository.Remove(ctx, event.TicketID)
 }

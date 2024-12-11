@@ -6,32 +6,50 @@ import (
 	"github.com/ThreeDotsLabs/go-event-driven/common/clients"
 	"github.com/ThreeDotsLabs/go-event-driven/common/log"
 	"net/http"
-	"tickets/entities"
 )
 
-type FilesServiceClient struct {
+type FilesApiClient struct {
+	// we are not mocking this client: it's pointless to use interface here
 	clients *clients.Clients
 }
 
-func NewFilesServiceClient(clients *clients.Clients) *FilesServiceClient {
+func NewFilesApiClient(clients *clients.Clients) *FilesApiClient {
 	if clients == nil {
-		panic("NewFilesServiceClient: clients is nil")
+		panic("NewFilesApiClient: clients is nil")
 	}
-	return &FilesServiceClient{
-		clients: clients,
-	}
+
+	return &FilesApiClient{clients: clients}
 }
 
-func (f FilesServiceClient) PrintTicket(ctx context.Context, ticket entities.Ticket) (string, error) {
-	fileID := fmt.Sprintf("%s-ticket.html", ticket.TicketID)
-	fileBody := fmt.Sprintf("Ticket EventID: %s. Price: %s %s", ticket.TicketID, ticket.Price.Amount, ticket.Price.Currency)
-	response, err := f.clients.Files.PutFilesFileIdContentWithTextBodyWithResponse(ctx, fileID, fileBody)
+func (c FilesApiClient) UploadFile(ctx context.Context, fileID string, fileContent string) error {
+	resp, err := c.clients.Files.PutFilesFileIdContentWithTextBodyWithResponse(ctx, fileID, fileContent)
 	if err != nil {
-		return "", err
+		return fmt.Errorf("failed to upload file %s: %w", fileID, err)
 	}
-	if response.StatusCode() == http.StatusConflict {
+
+	if resp.StatusCode() == http.StatusConflict {
 		log.FromContext(ctx).Infof("file %s already exists", fileID)
+		return nil
+	}
+	if resp.StatusCode() != http.StatusCreated {
+		return fmt.Errorf("unexpected status code while uploading file %s: %d", fileID, resp.StatusCode())
+	}
+
+	return nil
+}
+
+func (c FilesApiClient) DownloadFile(ctx context.Context, fileID string) (string, error) {
+	resp, err := c.clients.Files.GetFilesFileIdContentWithResponse(ctx, fileID)
+	if err != nil {
+		return "", fmt.Errorf("get file content: %w", err)
+	}
+
+	if resp.StatusCode() == http.StatusNotFound {
 		return "", nil
 	}
-	return fileID, nil
+	if resp.StatusCode() != http.StatusOK {
+		return "", fmt.Errorf("unexpected status code while getting file %s: %d", fileID, resp.StatusCode())
+	}
+
+	return string(resp.Body), nil
 }

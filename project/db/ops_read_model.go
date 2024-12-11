@@ -5,12 +5,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/ThreeDotsLabs/watermill/components/cqrs"
-	"github.com/google/uuid"
 	"tickets/entities"
 	"time"
 
 	"github.com/ThreeDotsLabs/go-event-driven/common/log"
+	"github.com/ThreeDotsLabs/watermill/components/cqrs"
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
 

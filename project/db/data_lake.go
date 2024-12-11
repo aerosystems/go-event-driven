@@ -4,31 +4,36 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"tickets/entities"
+
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
-	"tickets/entities"
 )
 
-type DataLakeRepository struct {
+type DataLake struct {
 	db *sqlx.DB
 }
 
-func NewDataLakeRepository(db *sqlx.DB) DataLakeRepository {
+func NewDataLake(db *sqlx.DB) DataLake {
 	if db == nil {
-		panic("nil db")
+		panic("db is nil")
 	}
 
-	return DataLakeRepository{db: db}
+	return DataLake{db: db}
 }
 
-func (e DataLakeRepository) AddEvent(ctx context.Context, event entities.DataLakeEvent) error {
-	_, err := e.db.ExecContext(
+func (s DataLake) StoreEvent(
+	ctx context.Context,
+	dataLakeEvent entities.DataLakeEvent,
+) error {
+	_, err := s.db.NamedExecContext(
 		ctx,
-		`INSERT INTO events (event_id, published_at, event_name, event_payload) VALUES ($1, $2, $3, $4)`,
-		event.EventID,
-		event.PublishedAt,
-		event.EventName,
-		event.EventPayload,
+		`
+			INSERT INTO 
+			    events (event_id, published_at, event_name, event_payload) 
+			VALUES 
+			    (:event_id, :published_at, :event_name, :event_payload)`,
+		dataLakeEvent,
 	)
 	var postgresError *pq.Error
 	if errors.As(err, &postgresError) && postgresError.Code.Name() == "unique_violation" {
@@ -36,15 +41,15 @@ func (e DataLakeRepository) AddEvent(ctx context.Context, event entities.DataLak
 		return nil
 	}
 	if err != nil {
-		return fmt.Errorf("could not store %s event in data lake: %w", event.EventID, err)
+		return fmt.Errorf("could not store %s event in data lake: %w", dataLakeEvent.EventID, err)
 	}
 
 	return nil
 }
 
-func (e DataLakeRepository) GetEvents(ctx context.Context) ([]entities.DataLakeEvent, error) {
+func (s DataLake) GetEvents(ctx context.Context) ([]entities.DataLakeEvent, error) {
 	var events []entities.DataLakeEvent
-	err := e.db.SelectContext(ctx, &events, "SELECT * FROM events ORDER BY published_at ASC")
+	err := s.db.SelectContext(ctx, &events, "SELECT * FROM events ORDER BY published_at ASC")
 	if err != nil {
 		return nil, fmt.Errorf("could not get events from data lake: %w", err)
 	}

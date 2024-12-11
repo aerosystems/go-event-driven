@@ -1,17 +1,15 @@
 package message
 
 import (
-	"context"
 	"fmt"
+	"github.com/ThreeDotsLabs/watermill"
+	"github.com/ThreeDotsLabs/watermill/components/cqrs"
+	"github.com/ThreeDotsLabs/watermill/message"
 	"tickets/db"
 	"tickets/entities"
 	"tickets/message/command"
 	"tickets/message/event"
 	"tickets/message/outbox"
-
-	"github.com/ThreeDotsLabs/watermill"
-	"github.com/ThreeDotsLabs/watermill/components/cqrs"
-	"github.com/ThreeDotsLabs/watermill/message"
 )
 
 func NewWatermillRouter(
@@ -23,7 +21,7 @@ func NewWatermillRouter(
 	commandProcessorConfig cqrs.CommandProcessorConfig,
 	commandsHandler command.Handler,
 	opsReadModel db.OpsBookingReadModel,
-	dataLakeRepo db.DataLakeRepository,
+	dataLake db.DataLake,
 	watermillLogger watermill.LoggerAdapter,
 ) *message.Router {
 	router, err := message.NewRouter(message.RouterConfig{}, watermillLogger)
@@ -43,7 +41,7 @@ func NewWatermillRouter(
 	eventProcessor.AddHandlers(
 		cqrs.NewEventHandler(
 			"BookPlaceInDeadNation",
-			eventHandler.BookingMade,
+			eventHandler.BookPlaceInDeadNation,
 		),
 		cqrs.NewEventHandler(
 			"AppendToTracker",
@@ -63,13 +61,12 @@ func NewWatermillRouter(
 		),
 		cqrs.NewEventHandler(
 			"StoreTickets",
-			eventHandler.StoreTicket,
+			eventHandler.StoreTickets,
 		),
 		cqrs.NewEventHandler(
 			"RemoveCanceledTicket",
 			eventHandler.RemoveCanceledTicket,
 		),
-
 		cqrs.NewEventHandler(
 			"ops_read_model.OnBookingMade",
 			opsReadModel.OnBookingMade,
@@ -92,7 +89,10 @@ func NewWatermillRouter(
 		),
 	)
 
-	commandProcessor, err := cqrs.NewCommandProcessorWithConfig(router, commandProcessorConfig)
+	commandProcessor, err := cqrs.NewCommandProcessorWithConfig(
+		router,
+		commandProcessorConfig,
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -113,24 +113,40 @@ func NewWatermillRouter(
 			if eventName == "" {
 				return fmt.Errorf("cannot get event name from message")
 			}
-			if err := redisPublisher.Publish("events."+eventName, msg); err != nil {
-				return fmt.Errorf("cannot publish message: %w", err)
+
+			return redisPublisher.Publish("events."+eventName, msg)
+		},
+	)
+
+	router.AddNoPublisherHandler(
+		"store_to_data_lake",
+		"events",
+		redisSubscriber,
+		func(msg *message.Message) error {
+			eventName := eventProcessorConfig.Marshaler.NameFromMessage(msg)
+			if eventName == "" {
+				return fmt.Errorf("cannot get event name from message")
 			}
 
+			// we just need to unmarshal event header, rest is stored as is
 			type Event struct {
 				Header entities.EventHeader `json:"header"`
 			}
+
 			var event Event
 			if err := eventProcessorConfig.Marshaler.Unmarshal(msg, &event); err != nil {
 				return fmt.Errorf("cannot unmarshal event: %w", err)
 			}
 
-			return dataLakeRepo.AddEvent(context.Background(), entities.DataLakeEvent{
-				EventID:      event.Header.ID,
-				EventName:    eventName,
-				EventPayload: msg.Payload,
-				PublishedAt:  event.Header.PublishedAt,
-			})
+			return dataLake.StoreEvent(
+				msg.Context(),
+				entities.DataLakeEvent{
+					EventID:      event.Header.ID,
+					PublishedAt:  event.Header.PublishedAt,
+					EventName:    eventName,
+					EventPayload: msg.Payload,
+				},
+			)
 		},
 	)
 

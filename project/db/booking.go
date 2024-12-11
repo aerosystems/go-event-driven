@@ -5,20 +5,20 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/http"
 	"tickets/entities"
 	"tickets/message/event"
 	"tickets/message/outbox"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/labstack/echo/v4"
 )
-
-var ErrNotEnoughTickets = errors.New("not enough tickets available")
 
 type BookingsRepository struct {
 	db *sqlx.DB
 }
 
-func NewBookingRepository(db *sqlx.DB) BookingsRepository {
+func NewBookingsRepository(db *sqlx.DB) BookingsRepository {
 	if db == nil {
 		panic("nil db")
 	}
@@ -27,8 +27,10 @@ func NewBookingRepository(db *sqlx.DB) BookingsRepository {
 }
 
 func (b BookingsRepository) AddBooking(ctx context.Context, booking entities.Booking) (err error) {
-	opts := sql.TxOptions{Isolation: sql.LevelSerializable}
-	tx, err := b.db.BeginTxx(ctx, &opts)
+	tx, err := b.db.BeginTxx(ctx, &sql.TxOptions{
+		// we need to serialize counting available seats and adding booking
+		Isolation: sql.LevelSerializable,
+	})
 	if err != nil {
 		return fmt.Errorf("could not begin transaction: %w", err)
 	}
@@ -42,18 +44,35 @@ func (b BookingsRepository) AddBooking(ctx context.Context, booking entities.Boo
 		err = tx.Commit()
 	}()
 
-	var count int
-	if err := tx.QueryRow(`
-		SELECT number_of_tickets
-		FROM shows
-		WHERE show_id = $1
-		FOR UPDATE
-		`, booking.ShowID).Scan(&count); err != nil {
-		return fmt.Errorf("could not get number of tickets: %w", err)
+	availableSeats := 0
+	err = tx.GetContext(ctx, &availableSeats, `
+		SELECT
+		    number_of_tickets AS available_seats
+		FROM
+		    shows
+		WHERE
+		    show_id = $1
+	`, booking.ShowID)
+	if err != nil {
+		return fmt.Errorf("could not get available seats: %w", err)
 	}
 
-	if count < booking.NumberOfTickets {
-		return fmt.Errorf("%w: %d tickets available at this monent", ErrNotEnoughTickets, count)
+	alreadyBookedSeats := 0
+	err = tx.GetContext(ctx, &alreadyBookedSeats, `
+		SELECT
+		    coalesce(SUM(number_of_tickets), 0) AS already_booked_seats
+		FROM
+		    bookings
+		WHERE
+		    show_id = $1
+	`, booking.ShowID)
+	if err != nil {
+		return fmt.Errorf("could not get already booked seats: %w", err)
+	}
+
+	if availableSeats-alreadyBookedSeats < booking.NumberOfTickets {
+		// this is usually a bad idea, learn more here: https://threedots.tech/post/introducing-clean-architecture/
+		return echo.NewHTTPError(http.StatusBadRequest, "not enough seats available")
 	}
 
 	_, err = tx.NamedExecContext(ctx, `
@@ -81,13 +100,5 @@ func (b BookingsRepository) AddBooking(ctx context.Context, booking entities.Boo
 		return fmt.Errorf("could not publish event: %w", err)
 	}
 
-	_, err = tx.ExecContext(ctx, `
-		UPDATE shows
-		SET number_of_tickets = number_of_tickets - $1
-		WHERE show_id = $2
-		`, booking.NumberOfTickets, booking.ShowID)
-	if err != nil {
-		return fmt.Errorf("could not update number of tickets: %w", err)
-	}
 	return nil
 }

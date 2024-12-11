@@ -16,8 +16,7 @@ func (h Handler) GetOpsTickets(c echo.Context) error {
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid receipt_issue_date format, expected RFC3339 date: ", err.Error())
 		}
 	}
-
-	allReservations, err := h.opsReadModel.AllReservations(receiptIssueDate)
+	allReservations, err := h.opsBookingReadModel.AllReservations(receiptIssueDate)
 	if err != nil {
 		return fmt.Errorf("failed to get all reservations: %w", err)
 	}
@@ -26,7 +25,7 @@ func (h Handler) GetOpsTickets(c echo.Context) error {
 }
 
 func (h Handler) GetOpsTicket(c echo.Context) error {
-	reservation, err := h.opsReadModel.ReservationReadModel(c.Request().Context(), c.Param("id"))
+	reservation, err := h.opsBookingReadModel.ReservationReadModel(c.Request().Context(), c.Param("id"))
 	if err != nil {
 		return fmt.Errorf("failed to get reservation: %w", err)
 	}

@@ -3,6 +3,15 @@ package service
 import (
 	"context"
 	"fmt"
+	stdHTTP "net/http"
+	"tickets/db"
+	ticketsHttp "tickets/http"
+	"tickets/message"
+	"tickets/message/command"
+	"tickets/message/event"
+	"tickets/message/outbox"
+	"tickets/observability"
+
 	"github.com/ThreeDotsLabs/go-event-driven/common/log"
 	watermillMessage "github.com/ThreeDotsLabs/watermill/message"
 	"github.com/jmoiron/sqlx"
@@ -12,14 +21,6 @@ import (
 	"github.com/sirupsen/logrus"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	"golang.org/x/sync/errgroup"
-	stdHTTP "net/http"
-	"tickets/db"
-	ticketsHttp "tickets/http"
-	"tickets/message"
-	"tickets/message/command"
-	"tickets/message/event"
-	"tickets/message/outbox"
-	"tickets/observability"
 )
 
 func init() {
@@ -27,61 +28,69 @@ func init() {
 }
 
 type Service struct {
-	db              *sqlx.DB
+	db *sqlx.DB
+
+	dataLake     db.DataLake
+	opsReadModel db.OpsBookingReadModel
+
 	watermillRouter *watermillMessage.Router
 	echoRouter      *echo.Echo
 
-	dataLake     db.DataLakeRepository
-	opsReadModel db.OpsBookingReadModel
-
 	traceProvider *tracesdk.TracerProvider
+}
+
+type ReceiptService interface {
+	event.ReceiptsService
+	command.ReceiptsService
 }
 
 func New(
 	dbConn *sqlx.DB,
 	redisClient *redis.Client,
+	deadNationAPI event.DeadNationAPI,
 	spreadsheetsService event.SpreadsheetsAPI,
-	receiptsService event.ReceiptsService,
-	filesService event.FilesService,
+	receiptsService ReceiptService,
+	filesAPI event.FilesAPI,
 	paymentsService command.PaymentsService,
-	deadNationService event.DeadNationService,
 ) Service {
+	traceProvider := observability.ConfigureTraceProvider()
+
 	watermillLogger := log.NewWatermill(log.FromContext(context.Background()))
 
 	var redisPublisher watermillMessage.Publisher
 	redisPublisher = message.NewRedisPublisher(redisClient, watermillLogger)
+
 	redisPublisher = log.CorrelationPublisherDecorator{Publisher: redisPublisher}
-	redisPublisher = observability.TracingPublisherDecorator{Publisher: redisPublisher}
+	redisPublisher = observability.TracingPublisherDecorator{redisPublisher}
 
-	var redisSubscriber watermillMessage.Subscriber
-	redisSubscriber = message.NewRedisSubscriber(redisClient, watermillLogger)
-
-	commandBus := command.NewBus(redisPublisher, command.NewBusConfig(watermillLogger))
+	redisSubscriber := message.NewRedisSubscriber(redisClient, watermillLogger)
 	eventBus := event.NewBus(redisPublisher)
-	ticketsRepo := db.NewTicketRepository(dbConn)
-	showsRepo := db.NewShowRepository(dbConn)
-	bookingRepo := db.NewBookingRepository(dbConn)
-	opsBookingRepo := db.NewOpsBookingReadModel(dbConn, eventBus)
-	dataLakeRepo := db.NewDataLakeRepository(dbConn)
+
+	ticketsRepo := db.NewTicketsRepository(dbConn)
+	OpsBookingReadModel := db.NewOpsBookingReadModel(dbConn, eventBus)
+	showsRepo := db.NewShowsRepository(dbConn)
+	bookingsRepository := db.NewBookingsRepository(dbConn)
+	dataLake := db.NewDataLake(dbConn)
 
 	eventsHandler := event.NewHandler(
-		eventBus,
+		deadNationAPI,
 		spreadsheetsService,
 		receiptsService,
-		filesService,
+		filesAPI,
 		ticketsRepo,
 		showsRepo,
-		deadNationService,
+		eventBus,
 	)
 
-	commandHandler := command.NewHandler(
+	commandsHandler := command.NewHandler(
 		eventBus,
 		receiptsService,
 		paymentsService,
 	)
 
-	postgresSubscriber := outbox.NewPostgresSubscriber(dbConn.DB, watermillLogger)
+	commandBus := command.NewBus(redisPublisher, command.NewBusConfig(watermillLogger))
 
+	postgresSubscriber := outbox.NewPostgresSubscriber(dbConn.DB, watermillLogger)
 	eventProcessorConfig := event.NewProcessorConfig(redisClient, watermillLogger)
 	commandProcessorConfig := command.NewProcessorConfig(redisClient, watermillLogger)
 
@@ -92,28 +101,29 @@ func New(
 		eventProcessorConfig,
 		eventsHandler,
 		commandProcessorConfig,
-		commandHandler,
-		opsBookingRepo,
-		dataLakeRepo,
+		commandsHandler,
+		OpsBookingReadModel,
+		dataLake,
 		watermillLogger,
 	)
+
 	echoRouter := ticketsHttp.NewHttpRouter(
-		commandBus,
 		eventBus,
+		commandBus,
 		spreadsheetsService,
 		ticketsRepo,
+		OpsBookingReadModel,
 		showsRepo,
-		bookingRepo,
-		opsBookingRepo,
+		bookingsRepository,
 	)
 
 	return Service{
 		dbConn,
+		dataLake,
+		OpsBookingReadModel,
 		watermillRouter,
 		echoRouter,
-		dataLakeRepo,
-		opsBookingRepo,
-		observability.ConfigureTraceProvider(),
+		traceProvider,
 	}
 }
 

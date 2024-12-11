@@ -24,11 +24,18 @@ func NewEventHeader() EventHeader {
 	}
 }
 
+func NewEventHeaderWithIdempotencyKey(idempotencyKey string) EventHeader {
+	return EventHeader{
+		ID:             uuid.NewString(),
+		PublishedAt:    time.Now().UTC(),
+		IdempotencyKey: idempotencyKey,
+	}
+}
+
 type TicketBookingConfirmed_v1 struct {
 	Header EventHeader `json:"header"`
 
-	TicketID string `json:"ticket_id"`
-
+	TicketID      string `json:"ticket_id"`
 	CustomerEmail string `json:"customer_email"`
 	Price         Money  `json:"price"`
 
@@ -51,6 +58,16 @@ func (t TicketBookingCanceled_v1) IsInternal() bool {
 	return false
 }
 
+type TicketRefunded_v1 struct {
+	Header EventHeader `json:"header"`
+
+	TicketID string `json:"ticket_id"`
+}
+
+func (t TicketRefunded_v1) IsInternal() bool {
+	return false
+}
+
 type TicketPrinted_v1 struct {
 	Header EventHeader `json:"header"`
 
@@ -62,13 +79,16 @@ func (t TicketPrinted_v1) IsInternal() bool {
 	return false
 }
 
-type TicketRefunded_v1 struct {
+type TicketReceiptIssued_v1 struct {
 	Header EventHeader `json:"header"`
 
-	TicketID string `json:"ticket_id"`
+	TicketID      string `json:"ticket_id"`
+	ReceiptNumber string `json:"receipt_number"`
+
+	IssuedAt time.Time `json:"issued_at"`
 }
 
-func (t TicketRefunded_v1) IsInternal() bool {
+func (t TicketReceiptIssued_v1) IsInternal() bool {
 	return false
 }
 
@@ -95,17 +115,4 @@ type InternalOpsReadModelUpdated struct {
 
 func (i InternalOpsReadModelUpdated) IsInternal() bool {
 	return true
-}
-
-type TicketReceiptIssued_v1 struct {
-	Header EventHeader `json:"header"`
-
-	TicketID      string `json:"ticket_id"`
-	ReceiptNumber string `json:"receipt_number"`
-
-	IssuedAt time.Time `json:"issued_at"`
-}
-
-func (t TicketReceiptIssued_v1) IsInternal() bool {
-	return false
 }

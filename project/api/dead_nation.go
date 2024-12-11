@@ -10,20 +10,20 @@ import (
 	"github.com/ThreeDotsLabs/go-event-driven/common/clients/dead_nation"
 )
 
-type DeadNationService struct {
+type DeadNationClient struct {
 	// we are not mocking this client: it's pointless to use interface here
 	clients *clients.Clients
 }
 
-func NewDeadNationServiceClient(clients *clients.Clients) *DeadNationService {
+func NewDeadNationClient(clients *clients.Clients) *DeadNationClient {
 	if clients == nil {
 		panic("NewFilesApiClient: clients is nil")
 	}
 
-	return &DeadNationService{clients: clients}
+	return &DeadNationClient{clients: clients}
 }
 
-func (c DeadNationService) Notify(ctx context.Context, request entities.DeadNationBooking) error {
+func (c DeadNationClient) BookInDeadNation(ctx context.Context, request entities.DeadNationBooking) error {
 	resp, err := c.clients.DeadNation.PostTicketBookingWithResponse(
 		ctx,
 		dead_nation.PostTicketBookingRequest{

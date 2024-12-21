@@ -66,12 +66,12 @@ func NewHandler() (*Handler, error) {
 
 func (h *Handler) Preview(ctx context.Context) ([]Message, error) {
 	var result []Message
-	err := h.iterate(ctx, func(msg *message.Message) bool {
+	err := h.iterate(ctx, func(msg *message.Message) (bool, error) {
 		result = append(result, Message{
 			ID:     msg.UUID,
 			Reason: msg.Metadata.Get(middleware.ReasonForPoisonedKey),
 		})
-		return true
+		return true, nil
 	})
 	if err != nil {
 		return nil, err
@@ -82,13 +82,13 @@ func (h *Handler) Preview(ctx context.Context) ([]Message, error) {
 
 func (h *Handler) Remove(ctx context.Context, messageID string) error {
 	var found bool
-	err := h.iterate(ctx, func(msg *message.Message) bool {
+	err := h.iterate(ctx, func(msg *message.Message) (bool, error) {
 		if msg.UUID == messageID {
 			found = true
-			return false
+			return false, nil
 		}
 
-		return true
+		return true, nil
 	})
 	if err != nil {
 		return err
@@ -101,7 +101,36 @@ func (h *Handler) Remove(ctx context.Context, messageID string) error {
 	return nil
 }
 
-func (h *Handler) iterate(ctx context.Context, actionFunc func(msg *message.Message) bool) error {
+func (h *Handler) Requeue(ctx context.Context, messageID string) error {
+	var found bool
+	err := h.iterate(ctx, func(msg *message.Message) (bool, error) {
+		if msg.UUID == messageID {
+			found = true
+
+			originalTopic := msg.Metadata.Get(middleware.PoisonedTopicKey)
+
+			err := h.publisher.Publish(originalTopic, msg)
+			if err != nil {
+				return false, err
+			}
+
+			return false, nil
+		}
+
+		return true, nil
+	})
+	if err != nil {
+		return err
+	}
+
+	if !found {
+		return fmt.Errorf("message not found: %v", messageID)
+	}
+
+	return nil
+}
+
+func (h *Handler) iterate(ctx context.Context, actionFunc func(msg *message.Message) (bool, error)) error {
 	router, err := message.NewRouter(
 		message.RouterConfig{},
 		watermill.NewStdLogger(false, false),
@@ -135,7 +164,11 @@ func (h *Handler) iterate(ctx context.Context, actionFunc func(msg *message.Mess
 				return nil, errors.New("done")
 			}
 
-			keep := actionFunc(msg)
+			keep, err := actionFunc(msg)
+			if err != nil {
+				return nil, err
+			}
+
 			if !keep {
 				if msg.UUID == firstMessageUUID {
 					done = true
@@ -192,6 +225,24 @@ func main() {
 					}
 
 					err = h.Remove(c.Context, c.Args().First())
+					if err != nil {
+						return err
+					}
+
+					return nil
+				},
+			},
+			{
+				Name:      "requeue",
+				ArgsUsage: "<message_id>",
+				Usage:     "requeue message",
+				Action: func(c *cli.Context) error {
+					h, err := NewHandler()
+					if err != nil {
+						return err
+					}
+
+					err = h.Requeue(c.Context, c.Args().First())
 					if err != nil {
 						return err
 					}

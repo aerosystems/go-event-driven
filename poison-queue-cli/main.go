@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/ThreeDotsLabs/watermill/message/router/middleware"
 	"log"
 	"os"
 	"time"
@@ -13,6 +12,7 @@ import (
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill-kafka/v2/pkg/kafka"
 	"github.com/ThreeDotsLabs/watermill/message"
+	"github.com/ThreeDotsLabs/watermill/message/router/middleware"
 	"github.com/urfave/cli/v2"
 )
 
@@ -66,13 +66,48 @@ func NewHandler() (*Handler, error) {
 
 func (h *Handler) Preview(ctx context.Context) ([]Message, error) {
 	var result []Message
+	err := h.iterate(ctx, func(msg *message.Message) bool {
+		result = append(result, Message{
+			ID:     msg.UUID,
+			Reason: msg.Metadata.Get(middleware.ReasonForPoisonedKey),
+		})
+		return true
+	})
+	if err != nil {
+		return nil, err
+	}
 
+	return result, nil
+}
+
+func (h *Handler) Remove(ctx context.Context, messageID string) error {
+	var found bool
+	err := h.iterate(ctx, func(msg *message.Message) bool {
+		if msg.UUID == messageID {
+			found = true
+			return false
+		}
+
+		return true
+	})
+	if err != nil {
+		return err
+	}
+
+	if !found {
+		return fmt.Errorf("message not found: %v", messageID)
+	}
+
+	return nil
+}
+
+func (h *Handler) iterate(ctx context.Context, actionFunc func(msg *message.Message) bool) error {
 	router, err := message.NewRouter(
 		message.RouterConfig{},
 		watermill.NewStdLogger(false, false),
 	)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
@@ -100,10 +135,13 @@ func (h *Handler) Preview(ctx context.Context) ([]Message, error) {
 				return nil, errors.New("done")
 			}
 
-			result = append(result, Message{
-				ID:     msg.UUID,
-				Reason: msg.Metadata.Get(middleware.ReasonForPoisonedKey),
-			})
+			keep := actionFunc(msg)
+			if !keep {
+				if msg.UUID == firstMessageUUID {
+					done = true
+				}
+				return nil, nil
+			}
 
 			return []*message.Message{msg}, nil
 		},
@@ -111,10 +149,10 @@ func (h *Handler) Preview(ctx context.Context) ([]Message, error) {
 
 	err = router.Run(ctx)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return result, nil
+	return nil
 }
 
 func main() {
@@ -138,6 +176,24 @@ func main() {
 
 					for _, m := range messages {
 						fmt.Printf("%v\t%v\n", m.ID, m.Reason)
+					}
+
+					return nil
+				},
+			},
+			{
+				Name:      "remove",
+				ArgsUsage: "<message_id>",
+				Usage:     "remove message",
+				Action: func(c *cli.Context) error {
+					h, err := NewHandler()
+					if err != nil {
+						return err
+					}
+
+					err = h.Remove(c.Context, c.Args().First())
+					if err != nil {
+						return err
 					}
 
 					return nil

@@ -56,6 +56,7 @@ type PaymentsService interface {
 type TransportationService interface {
 	BookFlight(ctx context.Context, request entities.BookFlightTicketRequest) (entities.BookFlightTicketResponse, error)
 	BookTaxi(ctx context.Context, request entities.BookTaxiRequest) (entities.BookTaxiResponse, error)
+	CancelFlightTickets(ctx context.Context, request entities.CancelFlightTicketsRequest) error
 }
 
 type BookingsRepository interface {

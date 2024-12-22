@@ -51,6 +51,7 @@ func New(
 	deadNationAPI event.DeadNationAPI,
 	spreadsheetsService event.SpreadsheetsAPI,
 	receiptsService ReceiptService,
+	transportationService command.TransportationService,
 	filesAPI event.FilesAPI,
 	paymentsService command.PaymentsService,
 ) Service {
@@ -88,6 +89,7 @@ func New(
 		bookingsRepository,
 		receiptsService,
 		paymentsService,
+		transportationService,
 	)
 
 	commandBus := command.NewBus(redisPublisher, command.NewBusConfig(watermillLogger))

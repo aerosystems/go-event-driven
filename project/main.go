@@ -64,6 +64,7 @@ func main() {
 	receiptsService := api.NewReceiptsServiceClient(apiClients)
 	filesAPI := api.NewFilesApiClient(apiClients)
 	paymentsService := api.NewPaymentsServiceClient(apiClients)
+	transportationService := api.NewTransportationClient(apiClients)
 
 	err = service.New(
 		db,
@@ -71,6 +72,7 @@ func main() {
 		deadNationAPI,
 		spreadsheetsService,
 		receiptsService,
+		transportationService,
 		filesAPI,
 		paymentsService,
 	).Run(ctx)

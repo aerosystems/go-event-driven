@@ -12,8 +12,9 @@ type Handler struct {
 
 	bookingsRepo BookingsRepository
 
-	receiptsServiceClient ReceiptsService
-	paymentsServiceClient PaymentsService
+	receiptsServiceClient       ReceiptsService
+	paymentsServiceClient       PaymentsService
+	transportationServiceClient TransportationService
 }
 
 func NewHandler(
@@ -21,6 +22,7 @@ func NewHandler(
 	bookingsRepo BookingsRepository,
 	receiptsServiceClient ReceiptsService,
 	paymentsServiceClient PaymentsService,
+	transportationServiceClient TransportationService,
 ) Handler {
 	if eventBus == nil {
 		panic("eventBus is required")
@@ -33,10 +35,11 @@ func NewHandler(
 	}
 
 	handler := Handler{
-		eventBus:              eventBus,
-		receiptsServiceClient: receiptsServiceClient,
-		paymentsServiceClient: paymentsServiceClient,
-		bookingsRepo:          bookingsRepo,
+		eventBus:                    eventBus,
+		receiptsServiceClient:       receiptsServiceClient,
+		paymentsServiceClient:       paymentsServiceClient,
+		transportationServiceClient: transportationServiceClient,
+		bookingsRepo:                bookingsRepo,
 	}
 
 	return handler
@@ -48,6 +51,11 @@ type ReceiptsService interface {
 
 type PaymentsService interface {
 	RefundPayment(ctx context.Context, request entities.PaymentRefund) error
+}
+
+type TransportationService interface {
+	BookFlight(ctx context.Context, request entities.BookFlightTicketRequest) (entities.BookFlightTicketResponse, error)
+	BookTaxi(ctx context.Context, request entities.BookTaxiRequest) (entities.BookTaxiResponse, error)
 }
 
 type BookingsRepository interface {

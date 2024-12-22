@@ -135,6 +135,14 @@ func NewWatermillRouter(
 			"BookShowTickets",
 			commandsHandler.BookShowTickets,
 		),
+		cqrs.NewCommandHandler(
+			"BookFlight",
+			commandsHandler.BookFlight,
+		),
+		cqrs.NewCommandHandler(
+			"BookTaxi",
+			commandsHandler.BookTaxi,
+		),
 	)
 
 	router.AddNoPublisherHandler(

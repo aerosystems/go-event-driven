@@ -18,6 +18,7 @@ func NewHttpRouter(
 	opsBookingReadModel OpsBookingReadModel,
 	showsRepository ShowsRepository,
 	bookingsRepository BookingsRepository,
+	vipBundlesRepository VipBundlesRepository,
 ) *echo.Echo {
 	e := libHttp.NewEcho()
 
@@ -37,6 +38,7 @@ func NewHttpRouter(
 		opsBookingReadModel:   opsBookingReadModel,
 		showsRepository:       showsRepository,
 		bookingsRepository:    bookingsRepository,
+		vipBundlesRepository:  vipBundlesRepository,
 	}
 
 	e.POST("/tickets-status", handler.PostTicketsStatus)
@@ -44,6 +46,8 @@ func NewHttpRouter(
 	e.PUT("/ticket-refund/:ticket_id", handler.PutTicketRefund)
 	e.GET("/tickets", handler.GetTickets)
 	e.POST("/book-tickets", handler.PostBookTickets)
+
+	e.POST("/book-vip-bundle", handler.PostVipBundle)
 
 	e.POST("/shows", handler.PostShows)
 

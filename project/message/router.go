@@ -22,6 +22,7 @@ func NewWatermillRouter(
 	commandsHandler command.Handler,
 	opsReadModel db.OpsBookingReadModel,
 	dataLake db.DataLake,
+	vipBundleProcessManager *entities.VipBundleProcessManager,
 	watermillLogger watermill.LoggerAdapter,
 ) *message.Router {
 	router, err := message.NewRouter(message.RouterConfig{}, watermillLogger)
@@ -87,6 +88,34 @@ func NewWatermillRouter(
 			"ops_read_model.OnTicketRefunded",
 			opsReadModel.OnTicketRefunded,
 		),
+		cqrs.NewEventHandler(
+			"vip_bundle_process_manager.OnVipBundleInitialized",
+			vipBundleProcessManager.OnVipBundleInitialized,
+		),
+		cqrs.NewEventHandler(
+			"vip_bundle_process_manager.OnBookingMade",
+			vipBundleProcessManager.OnBookingMade,
+		),
+		cqrs.NewEventHandler(
+			"vip_bundle_process_manager.OnBookingFailed",
+			vipBundleProcessManager.OnBookingFailed,
+		),
+		cqrs.NewEventHandler(
+			"vip_bundle_process_manager.OnFlightBooked",
+			vipBundleProcessManager.OnFlightBooked,
+		),
+		cqrs.NewEventHandler(
+			"vip_bundle_process_manager.OnFlightBookingFailed",
+			vipBundleProcessManager.OnFlightBookingFailed,
+		),
+		cqrs.NewEventHandler(
+			"vip_bundle_process_manager.OnTaxiBooked",
+			vipBundleProcessManager.OnTaxiBooked,
+		),
+		cqrs.NewEventHandler(
+			"vip_bundle_process_manager.OnTaxiBookingFailed",
+			vipBundleProcessManager.OnTaxiBookingFailed,
+		),
 	)
 
 	commandProcessor, err := cqrs.NewCommandProcessorWithConfig(
@@ -101,6 +130,10 @@ func NewWatermillRouter(
 		cqrs.NewCommandHandler(
 			"TicketRefund",
 			commandsHandler.RefundTicket,
+		),
+		cqrs.NewCommandHandler(
+			"BookShowTickets",
+			commandsHandler.BookShowTickets,
 		),
 	)
 

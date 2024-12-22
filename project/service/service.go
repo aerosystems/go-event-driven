@@ -5,6 +5,7 @@ import (
 	"fmt"
 	stdHTTP "net/http"
 	"tickets/db"
+	"tickets/entities"
 	ticketsHttp "tickets/http"
 	"tickets/message"
 	"tickets/message/command"
@@ -84,6 +85,7 @@ func New(
 
 	commandsHandler := command.NewHandler(
 		eventBus,
+		bookingsRepository,
 		receiptsService,
 		paymentsService,
 	)
@@ -93,6 +95,10 @@ func New(
 	postgresSubscriber := outbox.NewPostgresSubscriber(dbConn.DB, watermillLogger)
 	eventProcessorConfig := event.NewProcessorConfig(redisClient, watermillLogger)
 	commandProcessorConfig := command.NewProcessorConfig(redisClient, watermillLogger)
+
+	vipBundleRepo := db.NewVipBundleRepository(dbConn)
+
+	vipBundleProcessManager := entities.NewVipBundleProcessManager(commandBus, eventBus, vipBundleRepo)
 
 	watermillRouter := message.NewWatermillRouter(
 		postgresSubscriber,
@@ -104,6 +110,7 @@ func New(
 		commandsHandler,
 		OpsBookingReadModel,
 		dataLake,
+		vipBundleProcessManager,
 		watermillLogger,
 	)
 
@@ -115,6 +122,7 @@ func New(
 		OpsBookingReadModel,
 		showsRepo,
 		bookingsRepository,
+		vipBundleRepo,
 	)
 
 	return Service{

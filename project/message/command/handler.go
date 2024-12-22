@@ -10,11 +10,18 @@ import (
 type Handler struct {
 	eventBus *cqrs.EventBus
 
+	bookingsRepo BookingsRepository
+
 	receiptsServiceClient ReceiptsService
 	paymentsServiceClient PaymentsService
 }
 
-func NewHandler(eventBus *cqrs.EventBus, receiptsServiceClient ReceiptsService, paymentsServiceClient PaymentsService) Handler {
+func NewHandler(
+	eventBus *cqrs.EventBus,
+	bookingsRepo BookingsRepository,
+	receiptsServiceClient ReceiptsService,
+	paymentsServiceClient PaymentsService,
+) Handler {
 	if eventBus == nil {
 		panic("eventBus is required")
 	}
@@ -29,6 +36,7 @@ func NewHandler(eventBus *cqrs.EventBus, receiptsServiceClient ReceiptsService, 
 		eventBus:              eventBus,
 		receiptsServiceClient: receiptsServiceClient,
 		paymentsServiceClient: paymentsServiceClient,
+		bookingsRepo:          bookingsRepo,
 	}
 
 	return handler
@@ -40,4 +48,8 @@ type ReceiptsService interface {
 
 type PaymentsService interface {
 	RefundPayment(ctx context.Context, request entities.PaymentRefund) error
+}
+
+type BookingsRepository interface {
+	AddBooking(ctx context.Context, booking entities.Booking) (err error)
 }

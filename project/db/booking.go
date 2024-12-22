@@ -26,6 +26,10 @@ func NewBookingsRepository(db *sqlx.DB) BookingsRepository {
 	return BookingsRepository{db: db}
 }
 
+var (
+	ErrBookingAlreadyExists = errors.New("booking already exists")
+)
+
 func (b BookingsRepository) AddBooking(ctx context.Context, booking entities.Booking) (err error) {
 	tx, err := b.db.BeginTxx(ctx, &sql.TxOptions{
 		// we need to serialize counting available seats and adding booking
@@ -80,6 +84,10 @@ func (b BookingsRepository) AddBooking(ctx context.Context, booking entities.Boo
 		    bookings (booking_id, show_id, number_of_tickets, customer_email) 
 		VALUES (:booking_id, :show_id, :number_of_tickets, :customer_email)
 		`, booking)
+	if isErrorUniqueViolation(err) {
+		// now AddBooking is called via Pub/Sub, we are taking into account at-least-once delivery
+		return ErrBookingAlreadyExists
+	}
 	if err != nil {
 		return fmt.Errorf("could not add booking: %w", err)
 	}

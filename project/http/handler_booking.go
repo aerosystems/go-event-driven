@@ -14,6 +14,10 @@ type BookingsRepository interface {
 	AddBooking(ctx context.Context, booking entities.Booking) error
 }
 
+type VipBundlesRepository interface {
+	Add(ctx context.Context, vipBundle entities.VipBundle) error
+}
+
 type BookTicketRequest struct {
 	CustomerEmail   string    `json:"customer_email"`
 	NumberOfTickets int       `json:"number_of_tickets"`

@@ -13,9 +13,10 @@ type Handler struct {
 	spreadsheetsAPIClient SpreadsheetsAPI
 	ticketsRepo           TicketsRepository
 
-	opsBookingReadModel OpsBookingReadModel
-	showsRepository     ShowsRepository
-	bookingsRepository  BookingsRepository
+	opsBookingReadModel  OpsBookingReadModel
+	showsRepository      ShowsRepository
+	bookingsRepository   BookingsRepository
+	vipBundlesRepository VipBundlesRepository
 }
 
 type SpreadsheetsAPI interface {

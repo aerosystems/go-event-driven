@@ -13,7 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func MigrateReadModel(ctx context.Context, dl db.DataLakeRepository, rm db.OpsBookingReadModel) error {
+func MigrateReadModel(ctx context.Context, dl db.DataLake, rm db.OpsBookingReadModel) error {
 	var events []entities.DataLakeEvent
 
 	logger := log.FromContext(ctx)

@@ -1,6 +1,9 @@
 package entities
 
-import "github.com/google/uuid"
+import (
+	"fmt"
+	"github.com/google/uuid"
+)
 
 type BookFlightTicketRequest struct {
 	CustomerEmail  string
@@ -9,6 +12,8 @@ type BookFlightTicketRequest struct {
 	ReferenceId    string
 	IdempotencyKey string
 }
+
+var ErrNoFlightTicketsAvailable = fmt.Errorf("no flight tickets available")
 
 type BookFlightTicketResponse struct {
 	TicketIds []uuid.UUID `json:"ticket_ids"`

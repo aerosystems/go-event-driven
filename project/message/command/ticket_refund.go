@@ -35,7 +35,7 @@ func (h Handler) RefundTicket(ctx context.Context, ticketRefund *entities.Refund
 		TicketID: ticketRefund.TicketID,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to publish TicketRefunded_v1 event: %w", err)
+		return fmt.Errorf("failed to publish TicketRefunded event: %w", err)
 	}
 
 	return nil

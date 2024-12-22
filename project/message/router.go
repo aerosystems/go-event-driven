@@ -97,6 +97,10 @@ func NewWatermillRouter(
 			vipBundleProcessManager.OnBookingMade,
 		),
 		cqrs.NewEventHandler(
+			"vip_bundle_process_manager.OnTicketBookingConfirmed",
+			vipBundleProcessManager.OnTicketBookingConfirmed,
+		),
+		cqrs.NewEventHandler(
 			"vip_bundle_process_manager.OnBookingFailed",
 			vipBundleProcessManager.OnBookingFailed,
 		),

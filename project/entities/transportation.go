@@ -13,7 +13,10 @@ type BookFlightTicketRequest struct {
 	IdempotencyKey string
 }
 
-var ErrNoFlightTicketsAvailable = fmt.Errorf("no flight tickets available")
+var (
+	ErrNoFlightTicketsAvailable = fmt.Errorf("no flight tickets available")
+	ErrNoTaxiAvailable          = fmt.Errorf("no taxi available")
+)
 
 type BookFlightTicketResponse struct {
 	TicketIds []uuid.UUID `json:"ticket_ids"`

@@ -96,6 +96,8 @@ func (t TransportationClient) BookTaxi(ctx context.Context, request entities.Boo
 		return entities.BookTaxiResponse{
 			TaxiBookingId: resp.JSON201.BookingId,
 		}, nil
+	case http.StatusConflict:
+		return entities.BookTaxiResponse{}, entities.ErrNoTaxiAvailable
 	default:
 		return entities.BookTaxiResponse{}, fmt.Errorf(
 			"unexpected status code for PUT transportation-api/transportation/taxi-tickets: %d",
